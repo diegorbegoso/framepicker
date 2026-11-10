@@ -1,7 +1,10 @@
 ---
+
 description: Tauri shell and engine bridge conventions
 paths:
-  - "src-tauri/**"
+
+- "src-tauri/**"
+
 ---
 
 # Shell rules

@@ -1,7 +1,10 @@
 ---
+
 description: React interface conventions
 paths:
-  - "src/**"
+
+- "src/**"
+
 ---
 
 # UI rules

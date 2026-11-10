@@ -7,22 +7,22 @@ Todo se analiza en el equipo: sin red, sin cuentas y sin IA en la nube. Los orig
 
 Shell: Git Bash. Run everything from the project root.
 
-| Task | Command |
-|---|---|
-| Install | `pnpm install` · `uv sync --directory engine` |
-| App window (dev) | `pnpm dev` |
-| UI only (browser) | `pnpm dev:ui` |
-| Typecheck | `pnpm typecheck` |
-| Lint / format | `pnpm lint` · `pnpm format` |
-| UI tests | `pnpm test` · one file: `pnpm exec vitest run src/lib/theme.test.ts` |
-| Engine tests | `pnpm test:engine` · one file: `uv run --directory engine pytest tests/test_rpc.py -q` |
-| Engine lint / types | `pnpm lint:engine` · `pnpm typecheck:engine` |
-| Rust tests | `pnpm test:rust` |
-| Build UI | `pnpm build:ui` |
-| Build shell (debug) | `cargo build --manifest-path src-tauri/Cargo.toml` |
-| Freeze engine | `pnpm build:sidecar` |
-| Installer | `pnpm build:app` |
-| Engine by hand | `uv run --directory engine python -m mejores_engine` (reads JSON-RPC lines on stdin) |
+| Task                | Command                                                                                |
+| ------------------- | -------------------------------------------------------------------------------------- |
+| Install             | `pnpm install` · `uv sync --directory engine`                                          |
+| App window (dev)    | `pnpm dev`                                                                             |
+| UI only (browser)   | `pnpm dev:ui`                                                                          |
+| Typecheck           | `pnpm typecheck`                                                                       |
+| Lint / format       | `pnpm lint` · `pnpm format`                                                            |
+| UI tests            | `pnpm test` · one file: `pnpm exec vitest run src/lib/theme.test.ts`                   |
+| Engine tests        | `pnpm test:engine` · one file: `uv run --directory engine pytest tests/test_rpc.py -q` |
+| Engine lint / types | `pnpm lint:engine` · `pnpm typecheck:engine`                                           |
+| Rust tests          | `pnpm test:rust`                                                                       |
+| Build UI            | `pnpm build:ui`                                                                        |
+| Build shell (debug) | `cargo build --manifest-path src-tauri/Cargo.toml`                                     |
+| Freeze engine       | `pnpm build:sidecar`                                                                   |
+| Installer           | `pnpm build:app`                                                                       |
+| Engine by hand      | `uv run --directory engine python -m mejores_engine` (reads JSON-RPC lines on stdin)   |
 
 **Gate:** `pnpm typecheck && pnpm lint && pnpm test && pnpm lint:engine && pnpm typecheck:engine && pnpm test:engine && pnpm test:rust` must pass before any task is marked done.
 
@@ -44,24 +44,24 @@ shell forwards to the UI as the Tauri event `engine-event`.
 
 **Boundaries.** Cross one of these the wrong way and the build breaks:
 
-| Layer | May use | Must never |
-|---|---|---|
-| `src/screens`, `src/components` | `src/lib/*`, tokens | Call `invoke` or the engine directly, hold a colour literal |
-| `src/lib/engine.ts`, `ipc.ts` | `@tauri-apps/api`, zod | Import React |
-| `src-tauri/src` | `engine.rs` | Forward `grant_roots` from the UI, load remote content |
-| `engine/mejores_engine/app.py` | every engine module | Print to stdout |
-| `engine/mejores_engine/store.py` | stdlib `sqlite3` | Be imported by `features.py` |
-| everything in `engine/` | the filesystem read-only for photos | Open a socket, write to a source folder |
+| Layer                            | May use                             | Must never                                                  |
+| -------------------------------- | ----------------------------------- | ----------------------------------------------------------- |
+| `src/screens`, `src/components`  | `src/lib/*`, tokens                 | Call `invoke` or the engine directly, hold a colour literal |
+| `src/lib/engine.ts`, `ipc.ts`    | `@tauri-apps/api`, zod              | Import React                                                |
+| `src-tauri/src`                  | `engine.rs`                         | Forward `grant_roots` from the UI, load remote content      |
+| `engine/mejores_engine/app.py`   | every engine module                 | Print to stdout                                             |
+| `engine/mejores_engine/store.py` | stdlib `sqlite3`                    | Be imported by `features.py`                                |
+| everything in `engine/`          | the filesystem read-only for photos | Open a socket, write to a source folder                     |
 
 **Where things live.**
 
-| Concern | Single source of truth |
-|---|---|
-| DB schema | `engine/mejores_engine/migrations/*.sql` (forward-only) |
-| RPC methods | `engine/mejores_engine/app.py`; allowlist in `engine.rs` `FORWARDABLE` |
-| Settings and defaults | `engine/mejores_engine/settings.py` |
-| Colours, spacing, type | `src/styles/tokens.css` |
-| Version `0.1.0` | `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, `engine/pyproject.toml`, `engine/mejores_engine/__init__.py` (change all five together) |
+| Concern                | Single source of truth                                                                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| DB schema              | `engine/mejores_engine/migrations/*.sql` (forward-only)                                                                                                      |
+| RPC methods            | `engine/mejores_engine/app.py`; allowlist in `engine.rs` `FORWARDABLE`                                                                                       |
+| Settings and defaults  | `engine/mejores_engine/settings.py`                                                                                                                          |
+| Colours, spacing, type | `src/styles/tokens.css`                                                                                                                                      |
+| Version `0.1.0`        | `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, `engine/pyproject.toml`, `engine/mejores_engine/__init__.py` (change all five together) |
 
 ## Code rules
 
@@ -80,18 +80,18 @@ shell forwards to the UI as the Tauri event `engine-event`.
 Tokens are defined once in `src/styles/tokens.css`; components use `var(--token)` only. Light is the
 default theme; dark is chosen by the user and stored as setting `theme` (`data-theme="dark"` on `<html>`).
 
-| Token | Light | Dark |
-|---|---|---|
-| `--bg` | `#f7f7f5` | `#121316` |
-| `--surface` | `#ffffff` | `#1c1d21` |
-| `--fg` | `#1c1c1e` | `#e8e8ea` |
-| `--fg-muted` | `#5e5e63` | `#a0a0a8` |
-| `--primary` | `#2563d6` | `#6ea8fe` |
-| `--primary-fg` | `#ffffff` | `#0b1220` |
-| `--border` | `#8a8a93` | `#6b6c75` |
-| `--divider` | `#dadadf` | `#34353b` |
+| Token           | Light     | Dark      |
+| --------------- | --------- | --------- |
+| `--bg`          | `#f7f7f5` | `#121316` |
+| `--surface`     | `#ffffff` | `#1c1d21` |
+| `--fg`          | `#1c1c1e` | `#e8e8ea` |
+| `--fg-muted`    | `#5e5e63` | `#a0a0a8` |
+| `--primary`     | `#2563d6` | `#6ea8fe` |
+| `--primary-fg`  | `#ffffff` | `#0b1220` |
+| `--border`      | `#8a8a93` | `#6b6c75` |
+| `--divider`     | `#dadadf` | `#34353b` |
 | `--destructive` | `#c62828` | `#ff8a80` |
-| `--success` | `#2e7d32` | `#81c784` |
+| `--success`     | `#2e7d32` | `#81c784` |
 
 - **Type:** `Segoe UI Variable Text`, `Segoe UI`, `system-ui`; mono `Cascadia Mono`. Sizes 12/14/16/20/24/32 px.
 - **Spacing:** 4 px base: 4, 8, 12, 16, 24, 32, 48. **Radius:** 6 px controls, 10 px cards.
@@ -107,13 +107,13 @@ override). `.env.example` is committed. Nothing loads `.env` automatically; expo
 
 Deferred conventions: read the matching file before editing that area.
 
-| File | Applies to |
-|---|---|
-| `.claude/rules/engine.md` | `engine/mejores_engine/**` |
+| File                          | Applies to                            |
+| ----------------------------- | ------------------------------------- |
+| `.claude/rules/engine.md`     | `engine/mejores_engine/**`            |
 | `.claude/rules/migrations.md` | `engine/mejores_engine/migrations/**` |
-| `.claude/rules/shell.md` | `src-tauri/**` |
-| `.claude/rules/ui.md` | `src/**` |
-| `.claude/rules/tests.md` | `engine/tests/**`, `src/**/*.test.*` |
+| `.claude/rules/shell.md`      | `src-tauri/**`                        |
+| `.claude/rules/ui.md`         | `src/**`                              |
+| `.claude/rules/tests.md`      | `engine/tests/**`, `src/**/*.test.*`  |
 
 Project skills: `add-engine-method`, `add-migration` (`.claude/skills/`).
 

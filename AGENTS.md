@@ -4,14 +4,14 @@ Windows desktop app that picks the best shots of a photo burst. Everything runs 
 
 ## Commands
 
-| Task | Command |
-|---|---|
-| Install | `pnpm install` · `uv sync --directory engine` |
-| Typecheck / lint | `pnpm typecheck` · `pnpm lint` |
-| UI tests | `pnpm test` · one file: `pnpm exec vitest run <path>` |
-| Engine tests | `pnpm test:engine` · `pnpm lint:engine` · `pnpm typecheck:engine` |
-| Rust tests | `pnpm test:rust` |
-| Gate | `pnpm typecheck && pnpm lint && pnpm test && pnpm lint:engine && pnpm typecheck:engine && pnpm test:engine && pnpm test:rust` |
+| Task             | Command                                                                                                                       |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Install          | `pnpm install` · `uv sync --directory engine`                                                                                 |
+| Typecheck / lint | `pnpm typecheck` · `pnpm lint`                                                                                                |
+| UI tests         | `pnpm test` · one file: `pnpm exec vitest run <path>`                                                                         |
+| Engine tests     | `pnpm test:engine` · `pnpm lint:engine` · `pnpm typecheck:engine`                                                             |
+| Rust tests       | `pnpm test:rust`                                                                                                              |
+| Gate             | `pnpm typecheck && pnpm lint && pnpm test && pnpm lint:engine && pnpm typecheck:engine && pnpm test:engine && pnpm test:rust` |
 
 ## Non-negotiable
 

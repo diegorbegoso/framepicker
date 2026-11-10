@@ -1,7 +1,10 @@
 ---
+
 description: Forward-only SQLite migrations
 paths:
-  - "engine/mejores_engine/migrations/**"
+
+- "engine/mejores_engine/migrations/**"
+
 ---
 
 # Migration rules

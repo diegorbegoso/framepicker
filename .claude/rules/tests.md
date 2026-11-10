@@ -1,9 +1,12 @@
 ---
+
 description: Test conventions for the engine and the interface
 paths:
-  - "engine/tests/**"
-  - "src/**/*.test.ts"
-  - "src/**/*.test.tsx"
+
+- "engine/tests/**"
+- "src/**/*.test.ts"
+- "src/**/*.test.tsx"
+
 ---
 
 # Test rules

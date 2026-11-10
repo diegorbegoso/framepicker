@@ -1,7 +1,10 @@
 ---
+
 description: Conventions for the Python analysis engine
 paths:
-  - "engine/mejores_engine/**"
+
+- "engine/mejores_engine/**"
+
 ---
 
 # Engine rules
