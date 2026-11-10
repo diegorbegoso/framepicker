@@ -2,18 +2,40 @@
 
 from __future__ import annotations
 
+import os
 import sys
+import uuid
 from collections.abc import Callable
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from mejores_engine import __version__, settings
-from mejores_engine.rpc import INVALID_PARAMS, Dispatcher, RpcError, serve
+from mejores_engine.rpc import (
+    INVALID_PARAMS,
+    NOT_FOUND,
+    PATH_NOT_ALLOWED,
+    Dispatcher,
+    RpcError,
+    serve,
+)
+from mejores_engine.scan import Roots, collect, format_of
 from mejores_engine.store import Store
+
+FILES_LABEL = "Selección de archivos"
+
+
+def _string_list(params: dict[str, Any], key: str) -> list[str]:
+    value = params.get(key)
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise RpcError(INVALID_PARAMS, f"{key} must be a list of strings")
+    return list(value)
 
 
 def build_dispatcher(store_factory: Callable[[], Store] = Store) -> Dispatcher:
     dispatcher = Dispatcher()
     holder: list[Store] = []
+    roots = Roots()
 
     def store() -> Store:
         if not holder:
@@ -41,6 +63,58 @@ def build_dispatcher(store_factory: Callable[[], Store] = Store) -> Dispatcher:
         with store().session() as conn:
             clean = settings.set_value(conn, key, params["value"])
         return {"key": key, "value": clean}
+
+    @dispatcher.register("grant_roots")
+    def grant_roots(params: dict[str, Any]) -> dict[str, Any]:
+        return {"granted": roots.grant(_string_list(params, "roots"))}
+
+    @dispatcher.register("scan")
+    def scan(params: dict[str, Any]) -> dict[str, Any]:
+        raw_paths = _string_list(params, "paths")
+        if not raw_paths:
+            raise RpcError(INVALID_PARAMS, "paths must not be empty")
+        recursive = params.get("recursive", True)
+        if not isinstance(recursive, bool):
+            raise RpcError(INVALID_PARAMS, "recursive must be true or false")
+        paths = [Path(raw) for raw in raw_paths]
+        for path in paths:
+            if not path.is_absolute() or not roots.is_allowed(path):
+                raise RpcError(PATH_NOT_ALLOWED, f"path not allowed: {path}")
+        for path in paths:
+            if not path.exists():
+                raise RpcError(NOT_FOUND, f"path not found: {path}")
+        files, skipped = collect(paths, recursive)
+        folders = [path for path in paths if path.is_dir()]
+        label = folders[0].name if folders else FILES_LABEL
+        session_id = str(uuid.uuid4())
+        photos: list[dict[str, Any]] = []
+        with store().session() as conn:
+            conn.execute(
+                "INSERT INTO sessions (id, label, created_at) VALUES (?, ?, ?)",
+                (session_id, label, datetime.now(UTC).isoformat()),
+            )
+            for file in files:
+                info = os.stat(file)
+                photo = {
+                    "id": str(uuid.uuid4()),
+                    "path": str(file),
+                    "format": format_of(file),
+                    "size_bytes": info.st_size,
+                }
+                conn.execute(
+                    "INSERT INTO photos (id, session_id, path, format, size_bytes, mtime_ns) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (
+                        photo["id"],
+                        session_id,
+                        photo["path"],
+                        photo["format"],
+                        info.st_size,
+                        info.st_mtime_ns,
+                    ),
+                )
+                photos.append(photo)
+        return {"session_id": session_id, "photos": photos, "skipped": skipped}
 
     return dispatcher
 

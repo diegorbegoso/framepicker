@@ -199,7 +199,7 @@
       "engine/mejores_engine/app.py",
       "engine/tests/test_scan.py"
     ],
-    "status": "pending"
+    "status": "done"
   },
   {
     "id": "E2-T1",
