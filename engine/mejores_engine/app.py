@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from mejores_engine import __version__, settings
+from mejores_engine import __version__, features, settings
 from mejores_engine.rpc import (
     INVALID_PARAMS,
     NOT_FOUND,
@@ -115,6 +115,23 @@ def build_dispatcher(store_factory: Callable[[], Store] = Store) -> Dispatcher:
                 )
                 photos.append(photo)
         return {"session_id": session_id, "photos": photos, "skipped": skipped}
+
+    @dispatcher.register("preview")
+    def preview(params: dict[str, Any]) -> dict[str, Any]:
+        photo_id = params.get("photo_id")
+        if not isinstance(photo_id, str):
+            raise RpcError(INVALID_PARAMS, "photo_id must be a string")
+        max_px = params.get("max_px", 960)
+        if isinstance(max_px, bool) or not isinstance(max_px, int) or not 16 <= max_px <= 8192:
+            raise RpcError(INVALID_PARAMS, "max_px must be an integer from 16 to 8192")
+        with store().session() as conn:
+            row = conn.execute(
+                "SELECT path, format FROM photos WHERE id = ?", (photo_id,)
+            ).fetchone()
+        if row is None:
+            raise RpcError(NOT_FOUND, f"photo not found: {photo_id}")
+        url = features.preview_data_url(Path(row["path"]), str(row["format"]), max_px)
+        return {"data_url": url}
 
     return dispatcher
 
