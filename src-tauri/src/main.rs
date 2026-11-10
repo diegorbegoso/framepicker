@@ -7,5 +7,8 @@ fn main() {
         println!("{}", mejores_tomas_lib::version_line());
         return;
     }
+    if mejores_tomas_lib::wants_ping_engine(&args) {
+        std::process::exit(mejores_tomas_lib::ping_engine());
+    }
     mejores_tomas_lib::run();
 }

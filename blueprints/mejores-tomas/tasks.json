@@ -170,7 +170,7 @@
       "src/lib/ipc.ts",
       "src/lib/ipc.test.ts"
     ],
-    "status": "pending"
+    "status": "done"
   },
   {
     "id": "E1-T6",
