@@ -1,0 +1,558 @@
+[
+  {
+    "id": "E1-T1",
+    "title": "Base de interfaz y compuertas de calidad",
+    "epic": "01-fundamentos",
+    "dependencies": [],
+    "priority": "p0",
+    "acceptance": [
+      "WHEN `pnpm install --frozen-lockfile` runs on the committed tree THE SYSTEM SHALL exit 0 and leave `pnpm-lock.yaml` unmodified.",
+      "WHEN `pnpm typecheck` runs THE SYSTEM SHALL exit 0 with `\"strict\": true` present in `tsconfig.json`.",
+      "WHEN `pnpm lint` runs THE SYSTEM SHALL exit 0 with no diagnostics.",
+      "WHEN `pnpm exec vitest run src/App.test.tsx` runs THE SYSTEM SHALL pass the test that finds a level-1 heading named \"Mejores Tomas\".",
+      "WHEN `pnpm exec vitest run` is pointed at a test file that does not exist THE SYSTEM SHALL exit 1, so a missing test can never pass silently.",
+      "WHEN `pnpm build:ui` runs THE SYSTEM SHALL write `dist/index.html` that references a built asset under `assets/`."
+    ],
+    "verify": [
+      "pnpm install --frozen-lockfile",
+      "git diff --exit-code pnpm-lock.yaml",
+      "grep -q '\"strict\": true' tsconfig.json",
+      "pnpm typecheck",
+      "pnpm lint",
+      "pnpm exec vitest run src/App.test.tsx",
+      "status=0; pnpm exec vitest run src/does-not-exist.test.tsx || status=$?; test \"$status\" -eq 1",
+      "pnpm build:ui",
+      "test -f dist/index.html",
+      "grep -q 'assets/' dist/index.html"
+    ],
+    "checkpoint": "step-01-ui-base",
+    "files": [
+      "index.html",
+      "src/main.tsx",
+      "src/App.tsx",
+      "src/App.test.tsx"
+    ],
+    "status": "pending"
+  },
+  {
+    "id": "E1-T2",
+    "title": "Motor Python con JSON-RPC por stdio",
+    "epic": "01-fundamentos",
+    "dependencies": [
+      "E1-T1"
+    ],
+    "priority": "p0",
+    "acceptance": [
+      "WHEN the line `{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}` is sent to `uv run --directory engine python -m mejores_engine` THE SYSTEM SHALL answer exactly one line containing `\"pong\":true` and exit 0 at end of input.",
+      "WHEN `uv run --directory engine python -m mejores_engine --version` runs THE SYSTEM SHALL print `mejores-engine 0.1.0` and exit 0.",
+      "WHEN a request names an unknown method THE SYSTEM SHALL reply with error code -32601 and the same id.",
+      "WHEN an input line is not valid JSON THE SYSTEM SHALL reply with error code -32700 and `id` null instead of crashing.",
+      "WHEN a request omits `id` THE SYSTEM SHALL send no response.",
+      "WHEN `pnpm test:engine`, `pnpm lint:engine` and `pnpm typecheck:engine` run THE SYSTEM SHALL exit 0."
+    ],
+    "verify": [
+      "pnpm test:engine",
+      "pnpm lint:engine",
+      "pnpm typecheck:engine",
+      "uv run --directory engine python -m mejores_engine --version | grep -qx 'mejores-engine 0.1.0'",
+      "printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}' | uv run --directory engine python -m mejores_engine | grep -q '\"pong\":true'"
+    ],
+    "checkpoint": "step-02-engine-rpc",
+    "files": [
+      "engine/mejores_engine/__init__.py",
+      "engine/mejores_engine/__main__.py",
+      "engine/mejores_engine/rpc.py",
+      "engine/mejores_engine/app.py",
+      "engine/tests/test_rpc.py"
+    ],
+    "status": "pending"
+  },
+  {
+    "id": "E1-T3",
+    "title": "Almacén SQLite y migraciones hacia adelante",
+    "epic": "01-fundamentos",
+    "dependencies": [
+      "E1-T2"
+    ],
+    "priority": "p0",
+    "acceptance": [
+      "WHEN a `Store` opens an empty directory THE SYSTEM SHALL apply migration `0001`, create every table named in `EXPECTED_TABLES`, and record `0001` in `schema_migrations`.",
+      "WHEN the same directory is opened a second time THE SYSTEM SHALL apply no migration and keep every existing row.",
+      "WHEN `schema_migrations` holds a version this build does not ship THE SYSTEM SHALL refuse to open the store with error code -32013.",
+      "WHEN a `photos` row references a session that does not exist THE SYSTEM SHALL raise an integrity error, and WHEN a session is deleted THE SYSTEM SHALL delete its photos.",
+      "WHEN `settings_get` runs on an empty store THE SYSTEM SHALL report `theme` as \"light\", and WHEN `settings_set` stores \"dark\" THE SYSTEM SHALL report \"dark\" after the store is reopened.",
+      "WHEN `settings_set` receives `theme` = \"blue\" THE SYSTEM SHALL reply with error code -32602 and store nothing."
+    ],
+    "verify": [
+      "pnpm test:engine",
+      "pnpm lint:engine",
+      "pnpm typecheck:engine",
+      "test -f engine/mejores_engine/migrations/0001_init.sql"
+    ],
+    "checkpoint": "step-03-store",
+    "files": [
+      "engine/mejores_engine/store.py",
+      "engine/mejores_engine/settings.py",
+      "engine/mejores_engine/migrations/0001_init.sql",
+      "engine/mejores_engine/app.py",
+      "engine/tests/test_store.py"
+    ],
+    "status": "pending"
+  },
+  {
+    "id": "E1-T4",
+    "title": "Shell de escritorio: ventana y binario ejecutable",
+    "epic": "01-fundamentos",
+    "dependencies": [
+      "E1-T1"
+    ],
+    "priority": "p0",
+    "acceptance": [
+      "WHEN `pnpm build:ui` and then `cargo build --manifest-path src-tauri/Cargo.toml` run THE SYSTEM SHALL exit 0 and write `src-tauri/target/debug/mejores-tomas.exe`.",
+      "WHEN `src-tauri/target/debug/mejores-tomas.exe --version` runs THE SYSTEM SHALL print `mejores-tomas 0.1.0` and exit 0 without opening a window.",
+      "WHEN `uv run --directory engine python ../scripts/make_icon.py` runs THE SYSTEM SHALL write a non-empty `src-tauri/icon-source.png`.",
+      "WHEN `pnpm tauri icon src-tauri/icon-source.png` runs THE SYSTEM SHALL create `src-tauri/icons/icon.ico`, `32x32.png`, `128x128.png` and `128x128@2x.png`, the four files `tauri.conf.json` lists.",
+      "WHEN `pnpm test:rust` runs THE SYSTEM SHALL pass the tests that prove `wants_version` is true for `--version` and false for `--versions`, `-v` and no arguments."
+    ],
+    "verify": [
+      "uv run --directory engine python ../scripts/make_icon.py",
+      "test -s src-tauri/icon-source.png",
+      "pnpm tauri icon src-tauri/icon-source.png",
+      "test -f src-tauri/icons/icon.ico",
+      "test -f src-tauri/icons/32x32.png",
+      "test -f src-tauri/icons/128x128.png",
+      "test -f 'src-tauri/icons/128x128@2x.png'",
+      "pnpm build:ui",
+      "cargo build --manifest-path src-tauri/Cargo.toml",
+      "src-tauri/target/debug/mejores-tomas.exe --version | grep -qx 'mejores-tomas 0.1.0'",
+      "pnpm test:rust"
+    ],
+    "checkpoint": "step-04-shell",
+    "files": [
+      "src-tauri/src/main.rs",
+      "src-tauri/src/lib.rs",
+      "scripts/make_icon.py",
+      "src-tauri/icon-source.png",
+      "src-tauri/icons/**"
+    ],
+    "status": "pending"
+  },
+  {
+    "id": "E1-T5",
+    "title": "Puente entre el shell y el motor",
+    "epic": "01-fundamentos",
+    "dependencies": [
+      "E1-T2",
+      "E1-T4"
+    ],
+    "priority": "p0",
+    "acceptance": [
+      "WHEN `pnpm test:rust` runs THE SYSTEM SHALL pass the tests that prove a request line round-trips through `encode_request` and `decode_line`, that an error response decodes with its code and message, and that a line without `id` decodes as a notification.",
+      "WHEN `pnpm test:rust` runs THE SYSTEM SHALL pass the test proving `is_forwardable(\"grant_roots\")` is false and `is_forwardable(\"scan\")` is true.",
+      "WHEN `src-tauri/target/debug/mejores-tomas.exe --ping-engine` runs THE SYSTEM SHALL start the engine, print `engine-ok 0.1.0` and exit 0.",
+      "WHEN the engine process cannot be started (`MT_ENGINE_CMD` names a program that does not exist) THE SYSTEM SHALL make `--ping-engine` exit 1 with a message on stderr instead of hanging.",
+      "WHEN `pnpm exec vitest run src/lib/ipc.test.ts` runs THE SYSTEM SHALL pass the tests proving `ping()` returns the validated result and a malformed engine reply rejects."
+    ],
+    "verify": [
+      "pnpm test:rust",
+      "cargo build --manifest-path src-tauri/Cargo.toml",
+      "src-tauri/target/debug/mejores-tomas.exe --ping-engine | grep -qx 'engine-ok 0.1.0'",
+      "status=0; MT_ENGINE_CMD=mejores-engine-missing src-tauri/target/debug/mejores-tomas.exe --ping-engine || status=$?; test \"$status\" -eq 1",
+      "pnpm exec vitest run src/lib/ipc.test.ts",
+      "pnpm typecheck",
+      "pnpm lint"
+    ],
+    "checkpoint": "step-05-bridge",
+    "files": [
+      "src-tauri/src/engine.rs",
+      "src-tauri/src/lib.rs",
+      "src-tauri/src/main.rs",
+      "src/lib/ipc.ts",
+      "src/lib/ipc.test.ts"
+    ],
+    "status": "pending"
+  },
+  {
+    "id": "E1-T6",
+    "title": "Escaneo de carpetas y lista de rutas permitidas",
+    "epic": "01-fundamentos",
+    "dependencies": [
+      "E1-T3"
+    ],
+    "priority": "p0",
+    "acceptance": [
+      "WHEN `scan` receives a folder under a granted root THE SYSTEM SHALL create one session and one `photos` row per supported file, recursing into subfolders by default, with `format` 'jpg' for .jpg/.jpeg, 'png' for .png and 'raw' for ARW, CR2, CR3, NEF, NRW, DNG, RAF, ORF, RW2, PEF and SRW in any letter case.",
+      "WHEN `scan` receives a path outside every granted root (an unrelated folder, a `..` escape, or a sibling whose name starts with the root's name) THE SYSTEM SHALL reply with error code -32010 and create no session.",
+      "WHEN a folder holds unsupported files such as .txt, .xmp or .mp4 THE SYSTEM SHALL skip them and report their count in `skipped`.",
+      "WHEN `scan` receives individual file paths under a granted root THE SYSTEM SHALL include exactly those files.",
+      "WHEN file names are IMG_2.jpg and IMG_10.jpg THE SYSTEM SHALL list IMG_2.jpg first (natural order).",
+      "WHEN `grant_roots` receives a relative path or a path that does not exist THE SYSTEM SHALL reply with error code -32602 and grant nothing."
+    ],
+    "verify": [
+      "pnpm test:engine",
+      "pnpm lint:engine",
+      "pnpm typecheck:engine"
+    ],
+    "checkpoint": "step-06-scan",
+    "files": [
+      "engine/mejores_engine/scan.py",
+      "engine/mejores_engine/app.py",
+      "engine/tests/test_scan.py"
+    ],
+    "status": "pending"
+  },
+  {
+    "id": "E2-T1",
+    "title": "Rasgos por foto: vista previa, nitidez, exposición y huella",
+    "epic": "02-motor-de-analisis",
+    "dependencies": [
+      "E1-T6"
+    ],
+    "priority": "p0",
+    "acceptance": [
+      "WHEN `extract` reads a sharp 512x512 checkerboard and a Gaussian-blurred copy of it THE SYSTEM SHALL report a `sharpness` at least 10 times higher for the sharp image.",
+      "WHEN the image is uniformly grey at value 118 THE SYSTEM SHALL report `exposure` 1.0, and WHEN it is all white or all black THE SYSTEM SHALL report `exposure` 0.0 with `clip_hi` 1.0 or `clip_lo` 1.0.",
+      "WHEN a JPEG carries DateTimeOriginal \"2026:11:04 13:47:39\" THE SYSTEM SHALL return `exif_time` \"2026-11-04T13:47:39\", and WHEN a PNG has no EXIF THE SYSTEM SHALL return `exif_time` None.",
+      "WHEN a RAW file is read THE SYSTEM SHALL use the embedded JPEG preview and return the same features as for that JPEG, and WHEN no embedded preview exists THE SYSTEM SHALL fall back to a half-size demosaic.",
+      "WHEN a file cannot be decoded THE SYSTEM SHALL raise error code -32015, and WHEN `preview` is called THE SYSTEM SHALL return a `data:image/jpeg;base64,` URL whose decoded longest side is at most `max_px`.",
+      "WHEN `hamming_hex` compares \"0000000000000000\" with \"ffffffffffffffff\" THE SYSTEM SHALL return 64, and WHEN the same image is hashed twice THE SYSTEM SHALL return the same 16-digit hash."
+    ],
+    "verify": [
+      "pnpm test:engine",
+      "pnpm lint:engine",
+      "pnpm typecheck:engine",
+      "test -f scripts/bench_raw.py"
+    ],
+    "checkpoint": "step-07-features",
+    "files": [
+      "engine/mejores_engine/features.py",
+      "engine/mejores_engine/rpc.py",
+      "engine/mejores_engine/app.py",
+      "engine/tests/test_features.py",
+      "scripts/bench_raw.py"
+    ],
+    "status": "pending"
+  },
+  {
+    "id": "E2-T2",
+    "title": "Trabajo de análisis en paralelo con progreso y cancelación",
+    "epic": "02-motor-de-analisis",
+    "dependencies": [
+      "E2-T1"
+    ],
+    "priority": "p0",
+    "acceptance": [
+      "WHEN `analyze` runs over a session of 40 photos with a fake extractor THE SYSTEM SHALL end in state `done`, store `dhash` for all 40 rows, and emit a last `progress` with `done` equal to `total`.",
+      "WHEN a single photo takes 2.5 seconds to analyse THE SYSTEM SHALL still emit `progress` notifications no more than 1.2 seconds apart.",
+      "WHEN `cancel` is called 0.3 seconds into a 50-photo job whose extractor takes 0.2 seconds per photo THE SYSTEM SHALL report state `cancelled` within 1.0 second of the call and emit `job_done` with state `cancelled`.",
+      "WHEN the extractor raises error code -32015 for one photo THE SYSTEM SHALL finish in state `done` with `failed` equal to 1, record that path in `errors`, and store the other photos.",
+      "WHEN three real JPEG files are analysed with a real `ProcessPoolExecutor` of 2 workers THE SYSTEM SHALL store a non-null `dhash` for each of them.",
+      "WHEN `analyze` is called for a session that already has a running job THE SYSTEM SHALL reply with error code -32602, and for an unknown session SHALL reply -32011."
+    ],
+    "verify": [
+      "pnpm test:engine",
+      "pnpm lint:engine",
+      "pnpm typecheck:engine"
+    ],
+    "checkpoint": "step-08-analyze-job",
+    "files": [
+      "engine/mejores_engine/analyze.py",
+      "engine/mejores_engine/rpc.py",
+      "engine/mejores_engine/app.py",
+      "engine/mejores_engine/__main__.py",
+      "engine/tests/test_analyze.py"
+    ],
+    "status": "pending"
+  },
+  {
+    "id": "E2-T3",
+    "title": "Agrupación de ráfagas por tiempo y parecido visual",
+    "epic": "02-motor-de-analisis",
+    "dependencies": [
+      "E2-T2"
+    ],
+    "priority": "p0",
+    "acceptance": [
+      "WHEN two frames are 0.4 seconds apart with a hash distance of 6 THE SYSTEM SHALL place them in one burst.",
+      "WHEN two frames are 2.5 seconds apart with a hash distance of 0 and `time_gap_s` is 2.0 THE SYSTEM SHALL start a new burst.",
+      "WHEN two frames are 1 second apart and the hash distance is 23 with `hamming_max` 22 THE SYSTEM SHALL start a new burst, and WHEN the distance is exactly 22 THE SYSTEM SHALL keep them together.",
+      "WHEN a photo has no `exif_time` THE SYSTEM SHALL order it by file modification time, and WHEN two frames tie on time THE SYSTEM SHALL order them by natural file name so IMG_2 comes before IMG_10.",
+      "WHEN a frame has no hash THE SYSTEM SHALL leave it in a burst of its own.",
+      "WHEN `bursts` runs twice on the same session THE SYSTEM SHALL return the same memberships and positions and leave exactly one set of burst rows in the database."
+    ],
+    "verify": [
+      "pnpm test:engine",
+      "pnpm lint:engine",
+      "pnpm typecheck:engine"
+    ],
+    "checkpoint": "step-09-bursts",
+    "files": [
+      "engine/mejores_engine/grouping.py",
+      "engine/mejores_engine/app.py",
+      "engine/tests/test_grouping.py"
+    ],
+    "status": "pending"
+  },
+  {
+    "id": "E2-T4",
+    "title": "Ojos abiertos con MediaPipe local",
+    "epic": "02-motor-de-analisis",
+    "dependencies": [
+      "E2-T1"
+    ],
+    "priority": "p1",
+    "acceptance": [
+      "WHEN `uv run --directory engine python ../scripts/fetch_model.py` runs THE SYSTEM SHALL leave `face_landmarker.task` with size 3758596 and SHA-256 `64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff`, and WHEN the file is already correct THE SYSTEM SHALL exit 0 without downloading.",
+      "WHEN a download returns bytes whose SHA-256 differs THE SYSTEM SHALL delete the temporary file, leave any existing model untouched and exit 1.",
+      "WHEN `eyes_from_blendshapes` receives one face with both blink scores 0.9 THE SYSTEM SHALL return 0.1, with both 0.05 it SHALL return 0.95, with two faces it SHALL return the lower value, and with no faces it SHALL return None.",
+      "WHEN the real landmarker processes a uniform grey 512x512 image THE SYSTEM SHALL return None and not raise.",
+      "WHEN `extract` runs with `eyes=False` THE SYSTEM SHALL not load the model, and with `eyes=True` THE SYSTEM SHALL fill `eyes_open` (None when no face is found).",
+      "WHEN the engine answers a `ping` after the landmarker has run in the same process THE SYSTEM SHALL write exactly one line to stdout."
+    ],
+    "verify": [
+      "uv run --directory engine python ../scripts/fetch_model.py",
+      "pnpm test:engine",
+      "pnpm lint:engine",
+      "pnpm typecheck:engine"
+    ],
+    "checkpoint": "step-10-eyes",
+    "files": [
+      "scripts/fetch_model.py",
+      "engine/mejores_engine/eyes.py",
+      "engine/mejores_engine/features.py",
+      "engine/mejores_engine/assets/face_landmarker.task",
+      "engine/tests/test_eyes.py"
+    ],
+    "status": "pending"
+  },
+  {
+    "id": "E2-T5",
+    "title": "Puntuación combinada y selección por ráfaga",
+    "epic": "02-motor-de-analisis",
+    "dependencies": [
+      "E2-T3",
+      "E2-T4"
+    ],
+    "priority": "p0",
+    "acceptance": [
+      "WHEN a burst has sharpness 100, 50 and 25 with equal exposure and `per_burst` is 1 THE SYSTEM SHALL select exactly the sharpest photo.",
+      "WHEN one photo has `eyes_open` None and another has 0.8 THE SYSTEM SHALL give the first the burst average, and WHEN every photo has None THE SYSTEM SHALL ignore the eyes weight entirely.",
+      "WHEN the eyes weight is set to 0 THE SYSTEM SHALL produce the same ranking whatever the `eyes_open` values.",
+      "WHEN `per_burst` is 2 THE SYSTEM SHALL select exactly 2 photos from a burst of 3 and all photos from a burst of 2 or fewer, and WHEN two photos tie THE SYSTEM SHALL prefer the one that comes first in natural file-name order.",
+      "WHEN the user has set a pick on a burst and `select` runs again THE SYSTEM SHALL leave that burst's selections unchanged.",
+      "WHEN the pipeline scan, analyze, bursts and select runs on six synthetic photos with network sockets disabled THE SYSTEM SHALL finish and select the sharp frame of each burst."
+    ],
+    "verify": [
+      "pnpm test:engine",
+      "pnpm lint:engine",
+      "pnpm typecheck:engine"
+    ],
+    "checkpoint": "step-11-scoring",
+    "files": [
+      "engine/mejores_engine/scoring.py",
+      "engine/mejores_engine/app.py",
+      "engine/tests/test_scoring.py",
+      "engine/tests/test_pipeline.py"
+    ],
+    "status": "pending"
+  },
+  {
+    "id": "E2-T6",
+    "title": "Caché incremental de rasgos entre sesiones",
+    "epic": "02-motor-de-analisis",
+    "dependencies": [
+      "E2-T5"
+    ],
+    "priority": "p1",
+    "acceptance": [
+      "WHEN `analyze` runs a second time over unchanged files THE SYSTEM SHALL report `computed` 0 and `cached` equal to the photo count.",
+      "WHEN one file's modification time changes THE SYSTEM SHALL recompute exactly that file and serve the others from the cache.",
+      "WHEN `FEATURES_VERSION` changes, or the `eyes` flag differs, THE SYSTEM SHALL treat every entry as a miss.",
+      "WHEN migration `0002` applies to a database that is at `0001` and holds a session and a photo THE SYSTEM SHALL keep both rows and create `feature_cache`.",
+      "WHEN a photo fails to decode THE SYSTEM SHALL not write a cache entry for it."
+    ],
+    "verify": [
+      "pnpm test:engine",
+      "pnpm lint:engine",
+      "pnpm typecheck:engine",
+      "test -f engine/mejores_engine/migrations/0002_feature_cache.sql"
+    ],
+    "checkpoint": "step-12-cache",
+    "files": [
+      "engine/mejores_engine/migrations/0002_feature_cache.sql",
+      "engine/mejores_engine/analyze.py",
+      "engine/mejores_engine/store.py",
+      "engine/tests/test_cache.py"
+    ],
+    "status": "pending"
+  },
+  {
+    "id": "E3-T1",
+    "title": "Tema claro y oscuro, y estructura de la aplicación",
+    "epic": "03-interfaz-y-entrega",
+    "dependencies": [
+      "E1-T5",
+      "E1-T3"
+    ],
+    "priority": "p0",
+    "acceptance": [
+      "WHEN the app starts and `settings_get` reports theme \"light\" THE SYSTEM SHALL set `document.documentElement.dataset.theme` to \"light\", and WHEN it reports \"dark\" THE SYSTEM SHALL set it to \"dark\".",
+      "WHEN the user selects the \"Oscuro\" radio THE SYSTEM SHALL set `data-theme` to \"dark\" and call `settings_set` with key `theme` and value `dark` exactly once.",
+      "WHEN `settings_get` rejects THE SYSTEM SHALL fall back to light, keep the app usable and render no element with role `alert`.",
+      "WHEN the \"Oscuro\" radio is focused and the Space key is pressed THE SYSTEM SHALL select it, and the radio group SHALL have the accessible name \"Tema\".",
+      "WHEN `tokens.css` is parsed THE SYSTEM SHALL define the same colour token names in the light and the dark block, every listed text pair SHALL measure at least 4.5:1 and `--border` on `--bg` at least 3:1 in both themes.",
+      "WHEN every `.ts`, `.tsx` and `.css` file under `src` other than `tokens.css` and the test files is scanned THE SYSTEM SHALL find no hex, `rgb(`, `rgba(` or `hsl(` colour literal."
+    ],
+    "verify": [
+      "pnpm exec vitest run src/lib/theme.test.ts src/App.test.tsx",
+      "pnpm typecheck",
+      "pnpm lint",
+      "pnpm build:ui"
+    ],
+    "checkpoint": "step-13-theme-shell",
+    "files": [
+      "src/lib/theme.ts",
+      "src/lib/theme.test.ts",
+      "src/screens/SettingsScreen.tsx",
+      "src/App.tsx",
+      "src/App.test.tsx"
+    ],
+    "status": "pending"
+  },
+  {
+    "id": "E3-T2",
+    "title": "Pantallas de inicio y de revisión de ráfagas",
+    "epic": "03-interfaz-y-entrega",
+    "dependencies": [
+      "E3-T1",
+      "E2-T5"
+    ],
+    "priority": "p0",
+    "acceptance": [
+      "WHEN bursts load THE SYSTEM SHALL list one button per burst labelled \"Ráfaga {n} · {m} fotos\" and mark the auto-selected photos with the visible text \"Elegida\".",
+      "WHEN the user presses Space on a focused photo THE SYSTEM SHALL call `setPick` with the toggled value and update that photo's \"Elegida\" mark and accessible label.",
+      "WHEN `progress` events arrive THE SYSTEM SHALL render a `progressbar` whose `aria-valuenow` equals `done` and `aria-valuemax` equals `total`, labelled \"Analizando {done} de {total} fotos\".",
+      "WHEN the user sets \"Fotos por ráfaga\" to 2 and presses \"Aplicar\" THE SYSTEM SHALL call `setSetting` for `per_burst` with 2 and then call `select` again.",
+      "WHEN `scan` fails with code -32010 THE SYSTEM SHALL show \"Esa carpeta no está permitida. Elígela de nuevo con el botón.\" in an element with role `alert`.",
+      "WHEN the scan finds no supported photos THE SYSTEM SHALL show \"No encontré fotos compatibles en esa selección.\" and no burst list."
+    ],
+    "verify": [
+      "pnpm exec vitest run src/screens/screens.test.tsx",
+      "pnpm exec vitest run src/lib/theme.test.ts",
+      "pnpm typecheck",
+      "pnpm lint",
+      "pnpm build:ui"
+    ],
+    "checkpoint": "step-14-review-ui",
+    "files": [
+      "src/lib/engine.ts",
+      "src/screens/HomeScreen.tsx",
+      "src/screens/ReviewScreen.tsx",
+      "src/screens/screens.test.tsx",
+      "src/App.tsx"
+    ],
+    "status": "pending"
+  },
+  {
+    "id": "E3-T3",
+    "title": "Exportar la selección sin tocar los originales",
+    "epic": "03-interfaz-y-entrega",
+    "dependencies": [
+      "E2-T5",
+      "E2-T2"
+    ],
+    "priority": "p0",
+    "acceptance": [
+      "WHEN `export` runs on a session with 3 selected photos THE SYSTEM SHALL create exactly those 3 files in the destination, byte-identical to the originals (equal SHA-256), and report `copied` 3.",
+      "WHEN a file with the same name already exists in the destination, or two photos share a name, THE SYSTEM SHALL keep every file by adding `_1`, `_2` before the extension and never overwrite.",
+      "WHEN the destination equals a source folder or lies inside one THE SYSTEM SHALL reply with error code -32014 and copy nothing, and WHEN the destination is outside every granted root THE SYSTEM SHALL reply with -32010.",
+      "WHEN a selected RAW has a `.xmp` sidecar beside it THE SYSTEM SHALL copy the sidecar with the same new base name.",
+      "WHEN the export finishes THE SYSTEM SHALL leave every original with the same size, modification time and SHA-256 it had before.",
+      "WHEN no photo is selected THE SYSTEM SHALL finish in state `done` with `copied` 0 and create no file in the destination."
+    ],
+    "verify": [
+      "pnpm test:engine",
+      "pnpm lint:engine",
+      "pnpm typecheck:engine"
+    ],
+    "checkpoint": "step-15-export-engine",
+    "files": [
+      "engine/mejores_engine/export.py",
+      "engine/mejores_engine/app.py",
+      "engine/tests/test_export.py"
+    ],
+    "status": "pending"
+  },
+  {
+    "id": "E3-T4",
+    "title": "Botón de exportación en la pantalla de revisión",
+    "epic": "03-interfaz-y-entrega",
+    "dependencies": [
+      "E3-T2",
+      "E3-T3"
+    ],
+    "priority": "p0",
+    "acceptance": [
+      "WHEN the user presses \"Exportar elegidas\" and picks a destination THE SYSTEM SHALL call `exportSelection` with the session id and that destination and show \"Copiando {done} de {total}\" while `progress` events of kind `export` arrive.",
+      "WHEN `job_done` reports `copied` 4 THE SYSTEM SHALL show \"Se copiaron 4 fotos a {destino}. Tus originales no se tocaron.\" in an element with role `status`.",
+      "WHEN `exportSelection` fails with code -32014 THE SYSTEM SHALL show \"Esa carpeta está dentro de la carpeta de origen. Elige otra.\" in an element with role `alert` and no success message.",
+      "WHEN no photo is selected THE SYSTEM SHALL disable the export button and show \"Elige al menos una foto para exportar.\".",
+      "WHEN the folder dialog is cancelled and returns null THE SYSTEM SHALL not call `exportSelection`."
+    ],
+    "verify": [
+      "pnpm exec vitest run src/screens/screens.test.tsx",
+      "pnpm exec vitest run src/lib/theme.test.ts",
+      "pnpm typecheck",
+      "pnpm lint",
+      "pnpm build:ui"
+    ],
+    "checkpoint": "step-16-export-ui",
+    "files": [
+      "src/lib/engine.ts",
+      "src/screens/ExportPanel.tsx",
+      "src/screens/ReviewScreen.tsx",
+      "src/screens/screens.test.tsx"
+    ],
+    "status": "pending"
+  },
+  {
+    "id": "E3-T5",
+    "title": "Empaquetado: motor congelado e instalador de Windows",
+    "epic": "03-interfaz-y-entrega",
+    "dependencies": [
+      "E3-T4",
+      "E2-T4",
+      "E2-T6"
+    ],
+    "priority": "p0",
+    "acceptance": [
+      "WHEN `pnpm build:sidecar` runs THE SYSTEM SHALL produce `engine/dist/mejores-engine/mejores-engine.exe`.",
+      "WHEN that executable runs with `--version` THE SYSTEM SHALL print `mejores-engine 0.1.0` and exit 0.",
+      "WHEN that executable receives a `selftest` request with `MT_DATA_DIR` pointing at an empty folder THE SYSTEM SHALL answer with all six checks true.",
+      "WHEN that executable receives `settings_get` with `MT_DATA_DIR` pointing at an empty folder THE SYSTEM SHALL answer theme \"light\", proving a fresh database is created and migrated by the packaged build.",
+      "WHEN `pnpm build:app` runs THE SYSTEM SHALL produce `src-tauri/target/release/bundle/nsis/Mejores Tomas_0.1.0_x64-setup.exe` smaller than 629145600 bytes.",
+      "WHEN `pnpm test:engine` runs THE SYSTEM SHALL pass the `selftest` unit test in the development environment too."
+    ],
+    "verify": [
+      "pnpm test:engine",
+      "pnpm lint:engine",
+      "pnpm typecheck:engine",
+      "pnpm build:sidecar",
+      "engine/dist/mejores-engine/mejores-engine.exe --version | grep -qx 'mejores-engine 0.1.0'",
+      "MT_DATA_DIR=\"$(mktemp -d)\" && printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"selftest\"}' | MT_DATA_DIR=\"$MT_DATA_DIR\" engine/dist/mejores-engine/mejores-engine.exe | grep -qx '{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"migrations_present\":true,\"model_present\":true,\"rawpy_ok\":true,\"cv2_ok\":true,\"mediapipe_ok\":true,\"landmarker_loads\":true}}'",
+      "MT_DATA_DIR=\"$(mktemp -d)\" && printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"settings_get\"}' | MT_DATA_DIR=\"$MT_DATA_DIR\" engine/dist/mejores-engine/mejores-engine.exe | grep -q '\"theme\":\"light\"'",
+      "pnpm build:app",
+      "test -f 'src-tauri/target/release/bundle/nsis/Mejores Tomas_0.1.0_x64-setup.exe'",
+      "test \"$(wc -c < 'src-tauri/target/release/bundle/nsis/Mejores Tomas_0.1.0_x64-setup.exe')\" -lt 629145600"
+    ],
+    "checkpoint": "step-17-packaging",
+    "files": [
+      "scripts/build_sidecar.py",
+      "src-tauri/tauri.bundle.conf.json",
+      "package.json",
+      "engine/mejores_engine/app.py",
+      "engine/tests/test_selftest.py"
+    ],
+    "status": "pending"
+  }
+]

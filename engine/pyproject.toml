@@ -1,0 +1,43 @@
+[project]
+name = "mejores-engine"
+version = "0.1.0"
+description = "Mejores Tomas analysis engine. Runs locally, never touches the network."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "mediapipe==1.2.2",
+  "numpy==2.5.4",
+  "opencv-contrib-python==5.0.0.93",
+  "pillow==13.0.0",
+  "rawpy==0.28.0",
+]
+
+[dependency-groups]
+dev = [
+  "mypy==2.4.1",
+  "pyinstaller==6.22.3",
+  "pytest==9.2.0",
+  "ruff==0.17.4",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["rawpy.*", "mediapipe.*"]
+ignore_missing_imports = true

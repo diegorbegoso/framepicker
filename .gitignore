@@ -1,0 +1,27 @@
+# dependencies and build output
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+engine/.venv/
+engine/build/
+engine/dist/
+src-tauri/binaries/
+
+# python caches
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# local data and secrets (never committed)
+*.sqlite3
+.env
+.env.*
+!.env.example
+*.key
+.tauri-keys/
+
+# os noise
+Thumbs.db
+.DS_Store

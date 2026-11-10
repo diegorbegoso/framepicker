@@ -1,0 +1,86 @@
+/* Design tokens. The only file in the project allowed to contain colour literals.
+   Light is the default theme. Dark is selected by data-theme="dark" on <html>. */
+
+:root {
+  color-scheme: light;
+
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --fg: #1c1c1e;
+  --fg-muted: #5e5e63;
+  --primary: #2563d6;
+  --primary-fg: #ffffff;
+  --border: #8a8a93;
+  --divider: #dadadf;
+  --destructive: #c62828;
+  --success: #2e7d32;
+  --focus: #2563d6;
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 8%), 0 4px 12px rgb(0 0 0 / 6%);
+  --overlay: rgb(0 0 0 / 40%);
+
+  --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", Consolas, monospace;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+  --leading-body: 1.5;
+  --leading-tight: 1.25;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --radius-control: 6px;
+  --radius-card: 10px;
+  --content-max: 1440px;
+
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #121316;
+  --surface: #1c1d21;
+  --fg: #e8e8ea;
+  --fg-muted: #a0a0a8;
+  --primary: #6ea8fe;
+  --primary-fg: #0b1220;
+  --border: #6b6c75;
+  --divider: #34353b;
+  --destructive: #ff8a80;
+  --success: #81c784;
+  --focus: #6ea8fe;
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 50%);
+  --overlay: rgb(0 0 0 / 60%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur: 0ms;
+  }
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
