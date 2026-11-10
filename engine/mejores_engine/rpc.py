@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
 from collections.abc import Callable
 from typing import Any, TextIO
 
@@ -30,6 +31,36 @@ class RpcError(Exception):
         self.code = code
         self.message = message
         self.data = data
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        # Errors cross process boundaries (the analysis pool); keep code and data when pickled.
+        return (RpcError, (self.code, self.message, self.data))
+
+
+class Emitter:
+    """The only writer to the protocol stream. Thread-safe: job threads send notifications."""
+
+    def __init__(self, sink: TextIO) -> None:
+        self._sink = sink
+        self._lock = threading.Lock()
+
+    def send_line(self, line: str) -> None:
+        with self._lock:
+            self._sink.write(line + "\n")
+            self._sink.flush()
+
+    def notify(self, method: str, params: dict[str, Any]) -> None:
+        self.send_line(_dump({"jsonrpc": "2.0", "method": method, "params": params}))
+
+
+class NullEmitter(Emitter):
+    """Discards everything; used when no protocol stream is attached (tests, tools)."""
+
+    def __init__(self) -> None:
+        super().__init__(sys.stderr)
+
+    def send_line(self, line: str) -> None:
+        return None
 
 
 class Dispatcher:
@@ -92,7 +123,7 @@ def _dump(payload: dict[str, Any]) -> str:
     return json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
 
 
-def serve(dispatcher: Dispatcher, source: TextIO, sink: TextIO) -> None:
+def serve(dispatcher: Dispatcher, source: TextIO, emitter: Emitter) -> None:
     """Answer requests until the input closes. Stray prints from libraries go to stderr."""
     real_stdout = sys.stdout
     sys.stdout = sys.stderr
@@ -103,7 +134,6 @@ def serve(dispatcher: Dispatcher, source: TextIO, sink: TextIO) -> None:
                 continue
             response = dispatcher.handle_line(line)
             if response is not None:
-                sink.write(response + "\n")
-                sink.flush()
+                emitter.send_line(response)
     finally:
         sys.stdout = real_stdout

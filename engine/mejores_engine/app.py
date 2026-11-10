@@ -11,11 +11,14 @@ from pathlib import Path
 from typing import Any
 
 from mejores_engine import __version__, features, settings
+from mejores_engine.analyze import ExecutorFactory, Extractor, Jobs
 from mejores_engine.rpc import (
     INVALID_PARAMS,
     NOT_FOUND,
     PATH_NOT_ALLOWED,
     Dispatcher,
+    Emitter,
+    NullEmitter,
     RpcError,
     serve,
 )
@@ -32,7 +35,19 @@ def _string_list(params: dict[str, Any], key: str) -> list[str]:
     return list(value)
 
 
-def build_dispatcher(store_factory: Callable[[], Store] = Store) -> Dispatcher:
+def _string_param(params: dict[str, Any], key: str) -> str:
+    value = params.get(key)
+    if not isinstance(value, str) or not value:
+        raise RpcError(INVALID_PARAMS, f"{key} must be a non-empty string")
+    return value
+
+
+def build_dispatcher(
+    store_factory: Callable[[], Store] = Store,
+    emitter: Emitter | None = None,
+    executor_factory: ExecutorFactory | None = None,
+    extractor: Extractor = features.extract,
+) -> Dispatcher:
     dispatcher = Dispatcher()
     holder: list[Store] = []
     roots = Roots()
@@ -41,6 +56,24 @@ def build_dispatcher(store_factory: Callable[[], Store] = Store) -> Dispatcher:
         if not holder:
             holder.append(store_factory())
         return holder[0]
+
+    jobs = Jobs(store, emitter or NullEmitter(), executor_factory, extractor)
+
+    @dispatcher.register("analyze")
+    def analyze(params: dict[str, Any]) -> dict[str, Any]:
+        session_id = _string_param(params, "session_id")
+        eyes = params.get("eyes", True)
+        if not isinstance(eyes, bool):
+            raise RpcError(INVALID_PARAMS, "eyes must be true or false")
+        return {"job_id": jobs.start(session_id, eyes)}
+
+    @dispatcher.register("cancel")
+    def cancel(params: dict[str, Any]) -> dict[str, Any]:
+        return jobs.cancel(_string_param(params, "job_id"))
+
+    @dispatcher.register("job_status")
+    def job_status(params: dict[str, Any]) -> dict[str, Any]:
+        return jobs.get(_string_param(params, "job_id")).status()
 
     @dispatcher.register("ping")
     def ping(_params: dict[str, Any]) -> dict[str, Any]:
@@ -144,5 +177,6 @@ def main(argv: list[str] | None = None) -> int:
     if args:
         print("unknown arguments: " + " ".join(args), file=sys.stderr)
         return 2
-    serve(build_dispatcher(), sys.stdin, sys.stdout)
+    emitter = Emitter(sys.stdout)
+    serve(build_dispatcher(emitter=emitter), sys.stdin, emitter)
     return 0
