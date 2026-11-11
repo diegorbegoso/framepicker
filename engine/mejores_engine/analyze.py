@@ -7,6 +7,8 @@ it does so through its own connection.
 
 from __future__ import annotations
 
+import inspect
+import json
 import os
 import sqlite3
 import threading
@@ -14,16 +16,18 @@ import time
 import uuid
 from collections.abc import Callable
 from concurrent.futures import FIRST_COMPLETED, Executor, Future, ProcessPoolExecutor, wait
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from mejores_engine.features import FEATURES_VERSION, Features, extract
+from mejores_engine import features as features_module
+from mejores_engine.features import Features, extract
 from mejores_engine.rpc import INVALID_PARAMS, NOT_FOUND, Emitter, RpcError
 from mejores_engine.store import Store
 
-Extractor = Callable[[Path, str], Features]
+Extractor = Callable[..., Features]  # (path, fmt) or (path, fmt, eyes=...)
+CacheKey = tuple[str, int, int, str, int]
 ExecutorFactory = Callable[[], Executor]
 
 COMMIT_EVERY = 20
@@ -89,7 +93,8 @@ class Jobs:
         self._store = store
         self._emitter = emitter
         self._executor_factory = executor_factory or default_executor
-        self._extractor = extractor or extract
+        self._extractor: Extractor = extractor or extract
+        self._passes_eyes = "eyes" in inspect.signature(self._extractor).parameters
         self._jobs: dict[str, Job] = {}
         self._lock = threading.Lock()
 
@@ -161,12 +166,22 @@ class Jobs:
         executor = self._executor_factory()
         cancelled = False
         try:
-            futures: dict[Future[Features], PhotoRef] = {
-                executor.submit(self._extractor, Path(photo.path), photo.format): photo
-                for photo in job.photos
-            }
-            pending: set[Future[Features]] = set(futures)
             with self._store().session() as conn:
+                futures: dict[Future[Features], tuple[PhotoRef, CacheKey | None]] = {}
+                for photo in job.photos:
+                    key = _cache_key(photo, job.eyes)
+                    hit = _cache_get(conn, key)
+                    if hit is not None:
+                        _store_features(conn, photo, hit)
+                        job.cached += 1
+                        job.done += 1
+                        continue
+                    kwargs: dict[str, Any] = {"eyes": job.eyes} if self._passes_eyes else {}
+                    future = executor.submit(
+                        self._extractor, Path(photo.path), photo.format, **kwargs
+                    )
+                    futures[future] = (photo, key)
+                pending: set[Future[Features]] = set(futures)
                 since_commit = 0
                 while pending:
                     if job.cancel_requested.is_set():
@@ -174,7 +189,7 @@ class Jobs:
                         break
                     finished, pending = wait(pending, timeout=POLL_S, return_when=FIRST_COMPLETED)
                     for future in finished:
-                        self._record(conn, job, futures[future], future)
+                        self._record(conn, job, *futures[future], future)
                         job.done += 1
                         since_commit += 1
                         if since_commit >= COMMIT_EVERY:
@@ -191,7 +206,12 @@ class Jobs:
         job.state = "cancelled" if cancelled else "done"
 
     def _record(
-        self, conn: sqlite3.Connection, job: Job, photo: PhotoRef, future: Future[Features]
+        self,
+        conn: sqlite3.Connection,
+        job: Job,
+        photo: PhotoRef,
+        key: CacheKey | None,
+        future: Future[Features],
     ) -> None:
         try:
             result = future.result()
@@ -203,23 +223,59 @@ class Jobs:
             job.failed += 1
             job.errors.append({"path": photo.path, "message": f"{type(exc).__name__}: {exc}"})
             return
-        conn.execute(
-            "UPDATE photos SET width = ?, height = ?, exif_time = ?, dhash = ? WHERE id = ?",
-            (result.width, result.height, result.exif_time, result.dhash, photo.id),
-        )
-        conn.execute(
-            "INSERT OR REPLACE INTO scores (photo_id, sharpness, exposure, mean_luma, clip_hi, "
-            "clip_lo, eyes_open, engine_version, computed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                photo.id,
-                result.sharpness,
-                result.exposure,
-                result.mean_luma,
-                result.clip_hi,
-                result.clip_lo,
-                result.eyes_open,
-                FEATURES_VERSION,
-                datetime.now(UTC).isoformat(),
-            ),
-        )
+        _store_features(conn, photo, result)
+        if key is not None:
+            conn.execute(
+                "INSERT OR REPLACE INTO feature_cache (path, size_bytes, mtime_ns, "
+                "features_version, eyes, features_json) VALUES (?, ?, ?, ?, ?, ?)",
+                (*key, json.dumps(asdict(result))),
+            )
         job.computed += 1
+
+
+def _cache_key(photo: PhotoRef, eyes: bool) -> CacheKey | None:
+    """The cache key from the file as it is now; None when the file cannot be read."""
+    try:
+        info = os.stat(photo.path)
+    except OSError:
+        return None
+    version = features_module.FEATURES_VERSION
+    return (photo.path, info.st_size, info.st_mtime_ns, version, int(eyes))
+
+
+def _cache_get(conn: sqlite3.Connection, key: CacheKey | None) -> Features | None:
+    if key is None:
+        return None
+    row = conn.execute(
+        "SELECT features_json FROM feature_cache WHERE path = ? AND size_bytes = ? "
+        "AND mtime_ns = ? AND features_version = ? AND eyes = ?",
+        key,
+    ).fetchone()
+    if row is None:
+        return None
+    try:
+        return Features(**json.loads(row["features_json"]))
+    except (TypeError, ValueError):
+        return None
+
+
+def _store_features(conn: sqlite3.Connection, photo: PhotoRef, result: Features) -> None:
+    conn.execute(
+        "UPDATE photos SET width = ?, height = ?, exif_time = ?, dhash = ? WHERE id = ?",
+        (result.width, result.height, result.exif_time, result.dhash, photo.id),
+    )
+    conn.execute(
+        "INSERT OR REPLACE INTO scores (photo_id, sharpness, exposure, mean_luma, clip_hi, "
+        "clip_lo, eyes_open, engine_version, computed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            photo.id,
+            result.sharpness,
+            result.exposure,
+            result.mean_luma,
+            result.clip_hi,
+            result.clip_lo,
+            result.eyes_open,
+            features_module.FEATURES_VERSION,
+            datetime.now(UTC).isoformat(),
+        ),
+    )

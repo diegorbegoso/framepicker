@@ -23,6 +23,7 @@ EXPECTED_TABLES = (
     "burst_members",
     "selections",
     "schema_migrations",
+    "feature_cache",
 )
 
 
