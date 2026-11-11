@@ -7,6 +7,7 @@ import { EngineError, engineRequest } from "./ipc.ts";
 export { EngineError };
 
 export const PATH_NOT_ALLOWED = -32010;
+export const DEST_INSIDE_SOURCE = -32014;
 
 const ScannedPhoto = z.object({
   id: z.string(),
@@ -108,6 +109,11 @@ export async function preview(photoId: string, maxPx = 480): Promise<string> {
   return reply.data_url;
 }
 
+/** Copies the chosen photos of a session to `dest` (a folder the shell already granted). */
+export function exportSelection(sessionId: string, dest: string) {
+  return engineRequest("export", { session_id: sessionId, dest }, JobRef);
+}
+
 export function getSettings() {
   return engineRequest("settings_get", {}, Settings);
 }
@@ -142,9 +148,11 @@ const JobDoneEvent = z.object({
     job_id: z.string(),
     kind: z.string(),
     state: z.enum(["running", "done", "cancelled", "failed"]),
-    computed: z.number(),
-    cached: z.number(),
     failed: z.number(),
+    // analyze reports computed and cached; export reports copied.
+    computed: z.number().optional(),
+    cached: z.number().optional(),
+    copied: z.number().optional(),
   }),
 });
 export const EngineEvent = z.discriminatedUnion("method", [ProgressEvent, JobDoneEvent]);

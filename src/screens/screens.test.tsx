@@ -2,6 +2,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import * as engine from "../lib/engine.ts";
 import { EngineError, type EngineEvent, type SelectResult } from "../lib/engine.ts";
+import { ExportPanel } from "./ExportPanel.tsx";
 import { HomeScreen } from "./HomeScreen.tsx";
 import { ReviewScreen } from "./ReviewScreen.tsx";
 
@@ -20,6 +21,7 @@ vi.mock("../lib/engine.ts", async (importOriginal) => {
     pickFolder: vi.fn(),
     pickFiles: vi.fn(),
     onEngineEvent: vi.fn(),
+    exportSelection: vi.fn(),
   };
 });
 
@@ -198,5 +200,65 @@ describe("HomeScreen", () => {
     expect(mocked.analyze).not.toHaveBeenCalled();
     expect(onResult).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /^Ráfaga/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("ExportPanel", () => {
+  function exportEvent(method: "progress", done: number, total: number): EngineEvent;
+  function exportEvent(method: "job_done", copied: number): EngineEvent;
+  function exportEvent(method: "progress" | "job_done", a: number, b = 0): EngineEvent {
+    return method === "progress"
+      ? { method, params: { job_id: "e1", kind: "export", done: a, total: b } }
+      : { method, params: { job_id: "e1", kind: "export", state: "done", failed: 0, copied: a } };
+  }
+
+  it("copies to the picked folder and reports progress and success", async () => {
+    const user = userEvent.setup();
+    mocked.pickFolder.mockResolvedValue("D:Elegidas");
+    mocked.exportSelection.mockResolvedValue({ job_id: "e1" });
+    render(<ExportPanel sessionId="s1" selectedCount={4} />);
+    await waitFor(() => expect(mocked.onEngineEvent).toHaveBeenCalled());
+    await user.click(screen.getByRole("button", { name: "Exportar elegidas" }));
+    await waitFor(() => expect(mocked.exportSelection).toHaveBeenCalledWith("s1", "D:Elegidas"));
+    act(() => emit(exportEvent("progress", 2, 4)));
+    expect(screen.getByText("Copiando 2 de 4")).toBeInTheDocument();
+    act(() => emit(exportEvent("job_done", 4)));
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Se copiaron 4 fotos a D:Elegidas. Tus originales no se tocaron.",
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("explains a destination inside the source folder", async () => {
+    const user = userEvent.setup();
+    mocked.pickFolder.mockResolvedValue("C:\fotossub");
+    mocked.exportSelection.mockRejectedValue(new EngineError(-32014, "dest inside source"));
+    render(<ExportPanel sessionId="s1" selectedCount={2} />);
+    await user.click(screen.getByRole("button", { name: "Exportar elegidas" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Esa carpeta está dentro de la carpeta de origen. Elige otra.",
+    );
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("is disabled with a hint when nothing is chosen", () => {
+    render(<ExportPanel sessionId="s1" selectedCount={0} />);
+    expect(screen.getByRole("button", { name: "Exportar elegidas" })).toBeDisabled();
+    expect(screen.getByText("Elige al menos una foto para exportar.")).toBeInTheDocument();
+  });
+
+  it("does nothing when the folder dialog is cancelled", async () => {
+    const user = userEvent.setup();
+    mocked.pickFolder.mockResolvedValue(null);
+    render(<ExportPanel sessionId="s1" selectedCount={3} />);
+    await user.click(screen.getByRole("button", { name: "Exportar elegidas" }));
+    await waitFor(() => expect(mocked.pickFolder).toHaveBeenCalled());
+    expect(mocked.exportSelection).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Exportar elegidas" })).toBeEnabled();
+  });
+
+  it("sits in the review screen with the count of chosen photos", () => {
+    renderReview();
+    expect(screen.getByRole("button", { name: "Exportar elegidas" })).toBeEnabled();
   });
 });

@@ -1,6 +1,7 @@
 import { type CSSProperties, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import type { SelectedPhoto, SelectResult, Weights } from "../lib/engine.ts";
 import * as engine from "../lib/engine.ts";
+import { ExportPanel, panel } from "./ExportPanel.tsx";
 import { button } from "./HomeScreen.tsx";
 
 type Props = { sessionId: string; initial: SelectResult; onReset: () => void };
@@ -16,14 +17,6 @@ const layout: CSSProperties = {
   gridTemplateColumns: "220px 1fr 260px",
   gap: "var(--space-5)",
   alignItems: "start",
-};
-const panel: CSSProperties = {
-  background: "var(--surface)",
-  border: "1px solid var(--divider)",
-  borderRadius: "var(--radius-card)",
-  padding: "var(--space-4)",
-  display: "grid",
-  gap: "var(--space-3)",
 };
 const grid: CSSProperties = {
   display: "grid",
@@ -69,6 +62,7 @@ export function ReviewScreen({ sessionId, initial, onReset }: Props) {
   const burst = bursts[active];
   const photos = burst?.photos ?? [];
   const current: SelectedPhoto | undefined = photos[focused];
+  const selectedCount = bursts.reduce((n, b) => n + b.photos.filter((p) => p.selected).length, 0);
 
   useEffect(() => {
     void engine
@@ -243,6 +237,7 @@ export function ReviewScreen({ sessionId, initial, onReset }: Props) {
               Aplicar
             </button>
           </fieldset>
+          <ExportPanel sessionId={sessionId} selectedCount={selectedCount} />
         </aside>
       </div>
     </section>
