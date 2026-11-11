@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sys
 import threading
+import traceback
 from collections.abc import Callable
 from typing import Any, TextIO
 
@@ -104,6 +105,7 @@ class Dispatcher:
                 return None
             return _error(request_id, exc.code, exc.message, exc.data)
         except Exception as exc:  # noqa: BLE001 - last line of defence at the process boundary
+            traceback.print_exc()  # stderr only; the shell appends it to engine.log
             if is_notification:
                 return None
             return _error(request_id, INTERNAL_ERROR, f"{type(exc).__name__}: {exc}")

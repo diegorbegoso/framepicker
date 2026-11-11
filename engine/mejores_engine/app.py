@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import io
 import os
 import sys
 import uuid
@@ -266,6 +267,21 @@ def build_dispatcher(
     return dispatcher
 
 
+def use_utf8_stdio() -> None:
+    """Speak UTF-8 on stdio, as the shell does.
+
+    Windows opens pipes with the ANSI code page (cp1252 on a Spanish system), which turns "AÑO"
+    into mojibake and breaks every path that has an accent or an eñe.
+    """
+    for stream, errors in (
+        (sys.stdin, "replace"),
+        (sys.stdout, "backslashreplace"),
+        (sys.stderr, "replace"),
+    ):
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(encoding="utf-8", errors=errors)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
     if args == ["--version"]:
@@ -274,6 +290,7 @@ def main(argv: list[str] | None = None) -> int:
     if args:
         print("unknown arguments: " + " ".join(args), file=sys.stderr)
         return 2
+    use_utf8_stdio()
     emitter = Emitter(sys.stdout)
     serve(build_dispatcher(emitter=emitter), sys.stdin, emitter)
     return 0
