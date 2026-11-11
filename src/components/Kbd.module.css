@@ -1,0 +1,15 @@
+.root {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 1px var(--space-2);
+  border: 1px solid var(--divider);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fg-muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+}

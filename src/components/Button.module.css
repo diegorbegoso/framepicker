@@ -1,0 +1,83 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-h);
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font-weight: 550;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+
+.root:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.root:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.sm {
+  height: 30px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-xs);
+}
+
+.primary {
+  background: var(--primary);
+  color: var(--primary-fg);
+  box-shadow: var(--shadow-1);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.primary:active:not(:disabled) {
+  background: var(--primary-press);
+}
+
+.secondary {
+  background: var(--surface);
+  color: var(--fg);
+  border-color: var(--divider);
+  box-shadow: var(--shadow-1);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--fg);
+}
+
+.ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.stage {
+  background: var(--stage-raised);
+  color: var(--stage-fg);
+  border-color: var(--stage-border);
+}
+
+.stage:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--stage-fg) 10%, var(--stage-raised));
+}
+
+.stage:focus-visible {
+  outline-color: var(--stage-focus);
+}

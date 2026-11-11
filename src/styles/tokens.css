@@ -1,24 +1,51 @@
 /* Design tokens. The only file in the project allowed to contain colour literals.
-   Light is the default theme. Dark is selected by data-theme="dark" on <html>. */
+   Light is the default theme. Dark is selected by data-theme="dark" on <html>.
+   The photo stage (--stage-*) is dark in both themes: neutral surroundings for judging colour. */
 
 :root {
   color-scheme: light;
 
-  --bg: #f7f7f5;
+  /* Surfaces and text */
+  --bg: #f4f6fa;
   --surface: #ffffff;
-  --fg: #1c1c1e;
-  --fg-muted: #5e5e63;
-  --primary: #2563d6;
-  --primary-fg: #ffffff;
-  --border: #8a8a93;
-  --divider: #dadadf;
-  --destructive: #c62828;
-  --success: #2e7d32;
-  --focus: #2563d6;
-  --shadow-1: 0 1px 2px rgb(0 0 0 / 8%), 0 4px 12px rgb(0 0 0 / 6%);
-  --overlay: rgb(0 0 0 / 40%);
+  --surface-2: #eceff5;
+  --fg: #0f172a;
+  --fg-muted: #4b5565;
+  --border: #808a9b;
+  --divider: #dde2ea;
 
-  --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  /* Accent: electric blue */
+  --primary: #2757f5;
+  --primary-fg: #ffffff;
+  --primary-hover: #1f47d6;
+  --primary-press: #1a3bb3;
+  --primary-soft: #e6edff;
+  --focus: #2757f5;
+
+  /* Status */
+  --destructive: #c42b2b;
+  --success: #17703a;
+  --success-soft: #e3f4e8;
+
+  /* Photo stage: the same in both themes */
+  --stage: #0d0f12;
+  --stage-raised: #171a1f;
+  --stage-fg: #eceef2;
+  --stage-fg-muted: #a3acba;
+  --stage-border: #2b313a;
+  --stage-hud: rgb(13 15 18 / 72%);
+  --stage-accent: #7da2ff;
+  --stage-success: #7ddc8f;
+  --stage-focus: #9bb7ff;
+
+  /* Elevation */
+  --shadow-1: 0 1px 2px rgb(15 23 42 / 6%), 0 1px 1px rgb(15 23 42 / 4%);
+  --shadow-2: 0 4px 12px rgb(15 23 42 / 8%), 0 1px 3px rgb(15 23 42 / 6%);
+  --shadow-3: 0 12px 32px rgb(15 23 42 / 14%), 0 2px 6px rgb(15 23 42 / 8%);
+  --overlay: rgb(15 23 42 / 40%);
+
+  /* Type */
+  --font-ui: "Inter Variable", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Cascadia Mono", Consolas, monospace;
   --text-xs: 12px;
   --text-sm: 14px;
@@ -29,6 +56,7 @@
   --leading-body: 1.5;
   --leading-tight: 1.25;
 
+  /* Space, shape, layout */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -36,30 +64,48 @@
   --space-5: 24px;
   --space-6: 32px;
   --space-7: 48px;
-  --radius-control: 6px;
-  --radius-card: 10px;
+  --radius-sm: 6px;
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
   --content-max: 1440px;
+  --control-h: 36px;
 
+  /* Motion */
   --dur-fast: 120ms;
   --dur: 200ms;
+  --dur-slow: 320ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --bg: #121316;
-  --surface: #1c1d21;
-  --fg: #e8e8ea;
-  --fg-muted: #a0a0a8;
-  --primary: #6ea8fe;
-  --primary-fg: #0b1220;
-  --border: #6b6c75;
-  --divider: #34353b;
+  --bg: #0e1117;
+  --surface: #161b22;
+  --surface-2: #0a0d12;
+  --fg: #e6e9ef;
+  --fg-muted: #9aa4b2;
+  --border: #5b6577;
+  --divider: #262d38;
+
+  --primary: #7da2ff;
+  --primary-fg: #08101f;
+  --primary-hover: #9bb7ff;
+  --primary-press: #b8cbff;
+  --primary-soft: #1a2a52;
+  --focus: #7da2ff;
+
   --destructive: #ff8a80;
-  --success: #81c784;
-  --focus: #6ea8fe;
-  --shadow-1: 0 1px 2px rgb(0 0 0 / 50%);
+  --success: #7ddc8f;
+  --success-soft: #16301f;
+
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-2: 0 4px 12px rgb(0 0 0 / 40%), 0 1px 3px rgb(0 0 0 / 30%);
+  --shadow-3: 0 12px 32px rgb(0 0 0 / 55%), 0 2px 6px rgb(0 0 0 / 35%);
   --overlay: rgb(0 0 0 / 60%);
 }
 
@@ -67,7 +113,20 @@
   :root {
     --dur-fast: 0ms;
     --dur: 0ms;
+    --dur-slow: 0ms;
   }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
 }
 
 html,
@@ -78,6 +137,27 @@ body {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   line-height: var(--leading-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-block: 0;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
 :focus-visible {

@@ -1,0 +1,32 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.neutral {
+  background: var(--surface-2);
+  color: var(--fg-muted);
+}
+
+.primary {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.success {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.stage {
+  background: var(--stage-hud);
+  color: var(--stage-fg);
+}

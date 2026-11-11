@@ -17,6 +17,23 @@ const COLOR_TOKENS = [
   "--destructive",
   "--success",
   "--focus",
+  "--surface-2",
+  "--primary-hover",
+  "--primary-press",
+  "--primary-soft",
+  "--success-soft",
+];
+
+// Defined once in :root: the photo stage looks the same in both themes.
+const STAGE_TOKENS = [
+  "--stage",
+  "--stage-raised",
+  "--stage-fg",
+  "--stage-fg-muted",
+  "--stage-border",
+  "--stage-accent",
+  "--stage-success",
+  "--stage-focus",
 ];
 
 const TEXT_PAIRS: [string, string][] = [
@@ -28,6 +45,18 @@ const TEXT_PAIRS: [string, string][] = [
   ["--primary", "--bg"],
   ["--destructive", "--bg"],
   ["--success", "--bg"],
+  ["--fg", "--surface-2"],
+  ["--fg-muted", "--surface-2"],
+  ["--fg", "--primary-soft"],
+  ["--primary", "--primary-soft"],
+  ["--success", "--success-soft"],
+  ["--stage-fg", "--stage"],
+  ["--stage-fg", "--stage-raised"],
+  ["--stage-fg-muted", "--stage"],
+  ["--stage-fg-muted", "--stage-raised"],
+  ["--stage-accent", "--stage"],
+  ["--stage-success", "--stage"],
+  ["--stage-focus", "--stage"],
 ];
 
 function block(css: string, selector: string): Record<string, string> {
@@ -87,6 +116,25 @@ describe("tokens.css", () => {
     for (const name of COLOR_TOKENS) {
       expect(themes.light[name], `light ${name}`).toMatch(/^#[0-9a-f]{6}$/i);
       expect(themes.dark[name], `dark ${name}`).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+
+  it("keeps the photo stage identical in both themes", () => {
+    for (const name of STAGE_TOKENS) {
+      expect(themes.light[name], `light ${name}`).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(themes.dark[name], `${name} must not be overridden by the dark theme`).toBeUndefined();
+    }
+    expect(themes.light["--stage-hud"]).toMatch(/^rgb\(/);
+    expect(themes.dark["--stage-hud"]).toBeUndefined();
+  });
+
+  it("collapses every motion duration under prefers-reduced-motion", () => {
+    const media = /@media \(prefers-reduced-motion: reduce\)\s*\{\s*:root\s*\{([^}]*)\}/.exec(css);
+    expect(media, "reduced-motion block").not.toBeNull();
+    const reduced = media?.[1] ?? "";
+    for (const name of ["--dur-fast", "--dur", "--dur-slow"]) {
+      expect(reduced, name).toMatch(new RegExp(`${name}:\\s*0ms`));
+      expect(themes.light[name], `${name} has a normal value`).toMatch(/^[1-9]\d*ms$/);
     }
   });
 
