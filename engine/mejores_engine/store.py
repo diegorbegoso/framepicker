@@ -25,6 +25,8 @@ EXPECTED_TABLES = (
     "schema_migrations",
     "feature_cache",
     "luts",
+    "organize_batches",
+    "organize_moves",
 )
 
 

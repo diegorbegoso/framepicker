@@ -208,6 +208,46 @@ export async function pickLut(): Promise<string | null> {
     .parse(await invoke("pick_lut"));
 }
 
+const OrganizePreview = z.object({
+  to_move: z.number(),
+  sidecars: z.number(),
+  kept: z.number(),
+  kept_paired: z.number(),
+  already: z.number(),
+  folders: z.array(z.string()),
+});
+export type OrganizePreview = z.infer<typeof OrganizePreview>;
+const OrganizeResult = z.object({
+  batch_id: z.string(),
+  moved: z.number(),
+  failed: z.number(),
+  errors: z.array(z.object({ path: z.string(), message: z.string() })),
+});
+export type OrganizeResult = z.infer<typeof OrganizeResult>;
+const UndoResult = z.object({ batch_id: z.string(), restored: z.number(), skipped: z.number() });
+
+/** What organising the folder would do. Changes nothing. */
+export function organizePreview(sessionId: string, folderName: string) {
+  return engineRequest(
+    "organize_preview",
+    { session_id: sessionId, folder_name: folderName },
+    OrganizePreview,
+  );
+}
+
+/** Moves the photos that were not chosen into a subfolder, next to where they are. */
+export function organizeApply(sessionId: string, folderName: string) {
+  return engineRequest(
+    "organize_apply",
+    { session_id: sessionId, folder_name: folderName },
+    OrganizeResult,
+  );
+}
+
+export function organizeUndo(batchId: string) {
+  return engineRequest("organize_undo", { batch_id: batchId }, UndoResult);
+}
+
 export function getSettings() {
   return engineRequest("settings_get", {}, Settings);
 }

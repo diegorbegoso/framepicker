@@ -11,7 +11,7 @@ paths:
 
 - stdout belongs to the protocol: only `Emitter` and `serve()` write to it. Use `print(..., file=sys.stderr)` or `logging` for anything else.
 - No network. Never import `socket`, `urllib`, `http` or `requests` in `mejores_engine/` (the model downloader lives in `scripts/`, not here).
-- Photos are read-only. Open with `"rb"`/`cv2.imread`/`rawpy.imread`; never open a file inside a user folder for writing. Only `export.py` creates files, and only inside the granted destination.
+- Photos are read-only. Open with `"rb"`/`cv2.imread`/`rawpy.imread`; never open a file inside a user folder for writing. Only `export.py` creates files, and only inside the granted destination (`export_image.py` re-encodes for it; `luts_library.py` writes only inside the engine's own data folder). The single place that may move files in a user folder is `organize.py`: move only (`os.replace` onto a name that is free), never delete, only photos of the session and their `.xmp`, only into a subfolder beside each photo, every move recorded in `organize_moves` and committed before the next, and `organize_undo` puts them back without overwriting.
 - Handlers take a `dict` of params, validate it, and raise `RpcError(code, message)` with a code from `rpc.py`. Never return raw exceptions.
 - Use `Store.session()` for every database access. Never share a connection between threads; each job thread opens its own.
 - Analysis workers are threads of the engine process, not child processes (the packaged Windows app stalled starting a process pool). They must not touch the database, and shared native state such as the FaceLandmarker is used under a lock.

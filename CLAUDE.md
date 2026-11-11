@@ -119,7 +119,7 @@ Project skills: `add-engine-method`, `add-migration` (`.claude/skills/`).
 
 ## Non-negotiable
 
-1. Never modify, move or delete a file inside a folder the user picked. Export copies; nothing else writes there.
+1. Never modify or delete a file inside a folder the user picked. Export copies. The one exception, authorised by the owner, is `organize.py` ("Ordenar carpeta"): it may _move_ photos that were not chosen (and their `.xmp`) into a subfolder next to them, never delete or overwrite, only inside granted folders, always recorded so it can be undone.
 2. Never open a network connection from the engine or the UI. Local models only.
 3. The engine writes only JSON-RPC lines to stdout. Logs and library noise go to stderr.
 4. Never expose `grant_roots` to the UI; only `pick_folder` and `pick_files` call it.

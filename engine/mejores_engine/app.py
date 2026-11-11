@@ -18,6 +18,7 @@ from mejores_engine import (
     features,
     grouping,
     luts_library,
+    organize,
     scoring,
     settings,
 )
@@ -94,6 +95,7 @@ def build_dispatcher(
         return found.status() if found else jobs.get(job_id).status()
 
     export_api.register(dispatcher, store, roots, exports, library)
+    organize.register(dispatcher, store, roots)
 
     @dispatcher.register("selftest")
     def run_selftest(_params: dict[str, Any]) -> dict[str, bool]:
