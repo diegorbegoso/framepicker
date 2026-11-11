@@ -142,7 +142,8 @@ body,
 html,
 body {
   margin: 0;
-  overflow: hidden;
+  /* Never scrolls, not even from code (scrollIntoView): the screens scroll inside themselves. */
+  overflow: clip;
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-ui);

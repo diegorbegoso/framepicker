@@ -1,4 +1,5 @@
 .shell {
+  overflow: clip;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -9,6 +10,8 @@
 .root {
   display: grid;
   grid-template-columns: 264px minmax(0, 1fr) 304px;
+  /* One row exactly as tall as the window: a long column scrolls, it never stretches the page. */
+  grid-template-rows: minmax(0, 1fr);
   flex: 1;
   min-height: 0;
   background: var(--bg);

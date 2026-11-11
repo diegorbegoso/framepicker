@@ -24,6 +24,7 @@
 
 .field {
   display: flex;
+  white-space: nowrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);

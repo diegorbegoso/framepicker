@@ -1,5 +1,6 @@
 .shell {
   position: relative;
+  overflow: clip;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -15,7 +16,7 @@
 
 /* The review fills the window and scrolls inside its own columns. */
 .full {
-  overflow: hidden;
+  overflow: clip;
 }
 
 .page {

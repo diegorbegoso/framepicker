@@ -9,6 +9,7 @@ import { GridCell } from "./GridCell.tsx";
 import styles from "./GridScreen.module.css";
 import { between, flatten, type GridFilter, visibleItems } from "./items.ts";
 import { MiniViewer } from "./MiniViewer.tsx";
+import { useGridKeys } from "./useGridKeys.ts";
 import { ViewerModal } from "./ViewerModal.tsx";
 
 type Props = {
@@ -114,44 +115,16 @@ export function GridScreen({
   const columns = () =>
     Math.max(1, Math.floor(((grid.current?.clientWidth ?? 0) + GAP) / (size + GAP)));
 
-  const latest = useRef({ items, at, current, pick, mark, focusAt, columns });
-  latest.current = { items, at, current, pick, mark, focusAt, columns };
-
-  useEffect(() => {
-    if (!active || modal) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.ctrlKey || event.metaKey || event.altKey || event.defaultPrevented) return;
-      const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest("input, select, textarea, [contenteditable]")) return;
-      const onOtherButton = !!target?.closest("button, a") && !target?.closest("[data-cell]");
-      const a = latest.current;
-      const moves: Record<string, number> = {
-        ArrowLeft: -1,
-        ArrowRight: 1,
-        ArrowUp: -a.columns(),
-        ArrowDown: a.columns(),
-      };
-      if (event.key in moves && !event.shiftKey) {
-        event.preventDefault();
-        a.focusAt(a.at + (moves[event.key] ?? 0));
-      } else if (event.key === " " && !onOtherButton && a.current) {
-        event.preventDefault();
-        a.pick(a.current.photo.id, false);
-      } else if ((event.key === "m" || event.key === "M") && !onOtherButton && a.current) {
-        a.mark(a.current.photo.id, "toggle");
-      } else if (
-        (event.key === "Enter" || event.key === "v" || event.key === "V") &&
-        !onOtherButton
-      ) {
-        if (a.current) {
-          event.preventDefault();
-          setModal(true);
-        }
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [active, modal]);
+  useGridKeys({
+    enabled: active && !modal,
+    columns,
+    at,
+    hasPhoto: !!current,
+    focusAt,
+    togglePick: () => current && pick(current.photo.id, false),
+    toggleMark: () => current && mark(current.photo.id, "toggle"),
+    enlarge: () => setModal(true),
+  });
 
   const options: { value: GridFilter; label: string; count: number }[] = [
     { value: "all", label: "Todas", count: counts.all },
