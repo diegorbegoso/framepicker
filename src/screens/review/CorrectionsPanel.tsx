@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/Button.tsx";
+import { NumberField } from "../../components/NumberField.tsx";
 import { Panel } from "../../components/Panel.tsx";
 import type { Adjustments, LutInfo, SelectedBurst, SelectedPhoto } from "../../lib/engine.ts";
 import { isNeutral } from "../../lib/engine.ts";
@@ -31,12 +32,6 @@ type Props = {
   luts: LutInfo[];
   onExport: (scope: Scope) => void;
 };
-
-/** Number shown next to a slider: stops for exposure, a -100..100 scale for the rest. */
-function shown(key: Slider["key"], value: number): string {
-  const text = key === "exposure" ? `${value.toFixed(1)} EV` : String(Math.round(value * 100));
-  return value > 0 ? `+${text}` : text;
-}
 
 /**
  * Basic corrections for the photo on screen, saved as you drag. The same corrections can be copied
@@ -105,25 +100,38 @@ export function CorrectionsPanel({ photo, bursts, marked, edits, luts, onExport 
   const known = luts.some((lut) => lut.id === current.lut_id);
   return (
     <Panel title="Corrección básica" icon="sliders">
-      {SLIDERS.map(({ key, label }) => (
-        <label key={key} className={styles.slider}>
-          <span className={styles.row}>
-            {label}
-            <output className={styles.value}>{shown(key, current[key])}</output>
-          </span>
-          <input
-            type="range"
-            aria-label={label}
-            min={key === "exposure" ? -2 : -1}
-            max={key === "exposure" ? 2 : 1}
-            step={key === "exposure" ? 0.05 : 0.01}
-            value={current[key]}
-            disabled={!photo}
-            onChange={(event) => change({ [key]: Number(event.target.value) })}
-            onDoubleClick={() => change({ [key]: 0 })}
-          />
-        </label>
-      ))}
+      {SLIDERS.map(({ key, label }) => {
+        // Exposure is in stops; the rest are shown from -100 to 100, like the sliders of an editor.
+        const scale = key === "exposure" ? 1 : 100;
+        return (
+          <div key={key} className={styles.slider}>
+            <span className={styles.row}>
+              {label}
+              <NumberField
+                label={`${label} (valor)`}
+                value={current[key] * scale}
+                min={(key === "exposure" ? -2 : -1) * scale}
+                max={(key === "exposure" ? 2 : 1) * scale}
+                step={key === "exposure" ? 0.1 : 1}
+                unit={key === "exposure" ? "EV" : undefined}
+                disabled={!photo}
+                onChange={(next) => change({ [key]: next / scale })}
+              />
+            </span>
+            <input
+              type="range"
+              aria-label={label}
+              min={key === "exposure" ? -2 : -1}
+              max={key === "exposure" ? 2 : 1}
+              step={key === "exposure" ? 0.05 : 0.01}
+              value={current[key]}
+              disabled={!photo}
+              onChange={(event) => change({ [key]: Number(event.target.value) })}
+              onDoubleClick={() => change({ [key]: 0 })}
+            />
+          </div>
+        );
+      })}
 
       <label className={styles.field}>
         LUT
@@ -142,10 +150,18 @@ export function CorrectionsPanel({ photo, bursts, marked, edits, luts, onExport 
         </select>
       </label>
       {current.lut_id ? (
-        <label className={styles.slider}>
+        <div className={styles.slider}>
           <span className={styles.row}>
             Intensidad del LUT
-            <output className={styles.value}>{Math.round(current.lut_strength * 100)} %</output>
+            <NumberField
+              label="Intensidad del LUT (valor)"
+              value={current.lut_strength * 100}
+              min={0}
+              max={100}
+              step={1}
+              unit="%"
+              onChange={(next) => change({ lut_strength: next / 100 })}
+            />
           </span>
           <input
             type="range"
@@ -156,7 +172,7 @@ export function CorrectionsPanel({ photo, bursts, marked, edits, luts, onExport 
             value={current.lut_strength}
             onChange={(event) => change({ lut_strength: Number(event.target.value) })}
           />
-        </label>
+        </div>
       ) : null}
 
       <Button

@@ -13,6 +13,7 @@ import { Filmstrip } from "./review/Filmstrip.tsx";
 import { PhotoViewer } from "./review/PhotoViewer.tsx";
 import { SidePanel } from "./review/SidePanel.tsx";
 import { buildScopes, type Scope } from "./review/scopes.ts";
+import { useConfirm } from "./review/useConfirm.ts";
 import { useEdits } from "./review/useEdits.ts";
 import { useLuts } from "./review/useLuts.ts";
 import { usePicks } from "./review/usePicks.ts";
@@ -91,28 +92,14 @@ export function ReviewScreen({
     if (burst) await setPick(burst.id, photo, !photo.selected);
   }
 
-  async function confirm() {
-    if (!burst || isReviewed(burst)) return;
-    try {
-      await engine.confirmBurst(burst.id);
-    } catch {
-      setError("No se pudo confirmar la ráfaga.");
-      return;
-    }
-    setError(null);
-    setBursts((all) =>
-      all.map((b) =>
-        b.id === burst.id
-          ? { ...b, photos: b.photos.map((p) => ({ ...p, source: "user" as const })) }
-          : b,
-      ),
-    );
-    setAnnouncement(`Ráfaga ${burst.position + 1} confirmada`);
-    const after = bursts.slice(bursts.findIndex((b) => b.id === burst.id) + 1);
-    const next =
-      after.find((b) => !isReviewed(b)) ?? bursts.find((b) => b.id !== burst.id && !isReviewed(b));
-    if (next) selectBurst(next.id);
-  }
+  const confirm = useConfirm({
+    burst,
+    bursts,
+    setBursts,
+    selectBurst,
+    setError,
+    announce: setAnnouncement,
+  });
 
   function stepBurst(delta: number) {
     const list = visible.length > 0 ? visible : bursts;

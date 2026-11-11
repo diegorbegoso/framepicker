@@ -99,7 +99,9 @@ describe("the corrections panel", () => {
     openReview();
     drag(within(panel()).getByRole("slider", { name: "Exposición" }), 1);
     drag(within(panel()).getByRole("slider", { name: "Exposición" }), 1.5);
-    expect(within(panel()).getByText("+1.5 EV")).toBeInTheDocument();
+    expect(
+      within(panel()).getByRole("spinbutton", { name: "Exposición (valor)" }),
+    ).toHaveDisplayValue("1.5");
     expect(mocked.setEdits).not.toHaveBeenCalled(); // still dragging
     await waitFor(() => expect(mocked.setEdits).toHaveBeenCalledTimes(1));
     expect(mocked.setEdits).toHaveBeenCalledWith("s1", ["IMG_2"], SAVED({ exposure: 1.5 }));
@@ -143,6 +145,48 @@ describe("the corrections panel", () => {
     );
   });
 
+  it("takes a number typed next to the slider, and moves it with the arrow keys", async () => {
+    const user = openReview();
+    const exposure = within(panel()).getByRole("spinbutton", { name: "Exposición (valor)" });
+    await user.click(exposure);
+    await user.keyboard("{Control>}a{/Control}1,5");
+    expect(within(panel()).getByRole("slider", { name: "Exposición" })).toHaveValue("1.5");
+    await user.keyboard("{ArrowUp}");
+    expect(exposure).toHaveDisplayValue("1.6");
+    expect(within(panel()).getByRole("slider", { name: "Exposición" })).toHaveValue("1.6");
+    await waitFor(() => expect(mocked.setEdits).toHaveBeenCalledTimes(1));
+    expect(mocked.setEdits).toHaveBeenCalledWith("s1", ["IMG_2"], SAVED({ exposure: 1.6 }));
+  });
+
+  it("shows the other controls from -100 to 100 and turns them back into fractions", async () => {
+    const user = openReview();
+    const contrast = within(panel()).getByRole("spinbutton", { name: "Contraste (valor)" });
+    await user.click(contrast);
+    await user.keyboard("{Control>}a{/Control}25");
+    expect(within(panel()).getByRole("slider", { name: "Contraste" })).toHaveValue("0.25");
+    await user.keyboard("{Shift>}{ArrowDown}{/Shift}");
+    expect(contrast).toHaveDisplayValue("15");
+    await waitFor(() => expect(mocked.setEdits).toHaveBeenCalled());
+    expect(mocked.setEdits).toHaveBeenLastCalledWith("s1", ["IMG_2"], SAVED({ contrast: 0.15 }));
+  });
+
+  it("keeps a typed number inside the range and takes a LUT strength in percent", async () => {
+    const user = openReview();
+    const saturation = within(panel()).getByRole("spinbutton", { name: "Saturación (valor)" });
+    await user.click(saturation);
+    await user.keyboard("{Control>}a{/Control}500");
+    expect(within(panel()).getByRole("slider", { name: "Saturación" })).toHaveValue("1");
+    await within(panel()).findByRole("option", { name: "Cálido" });
+    await user.selectOptions(within(panel()).getByLabelText("LUT"), "Cálido");
+    const strength = within(panel()).getByRole("spinbutton", {
+      name: "Intensidad del LUT (valor)",
+    });
+    expect(strength).toHaveDisplayValue("100");
+    await user.click(strength);
+    await user.keyboard("{Control>}a{/Control}40");
+    expect(within(panel()).getByRole("slider", { name: "Intensidad del LUT" })).toHaveValue("0.4");
+  });
+
   it("copies the corrections to the whole burst with one button", async () => {
     const user = openReview();
     drag(within(panel()).getByRole("slider", { name: "Saturación" }), -0.5);
@@ -169,7 +213,9 @@ describe("the corrections panel", () => {
   it("shows the corrections a photo already has and can clear them", async () => {
     mocked.getEdits.mockResolvedValue({ IMG_2: SAVED({ exposure: 0.5, tint: -0.2 }) });
     const user = openReview();
-    expect(await within(panel()).findByText("+0.5 EV")).toBeInTheDocument();
+    expect(
+      await within(panel()).findByRole("spinbutton", { name: "Exposición (valor)" }),
+    ).toHaveDisplayValue("0.5");
     await user.click(within(panel()).getByRole("button", { name: "Restablecer esta foto" }));
     await waitFor(() => expect(mocked.resetEdits).toHaveBeenCalledWith("s1", ["IMG_2"]));
     expect(within(panel()).getByRole("button", { name: "Restablecer esta foto" })).toBeDisabled();
