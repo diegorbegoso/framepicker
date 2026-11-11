@@ -17,6 +17,11 @@ pub fn wants_ping_engine(args: &[String]) -> bool {
     args.iter().skip(1).any(|arg| arg == "--ping-engine")
 }
 
+/// How long the shell waits for the engine's first answer. A cold start of the frozen engine
+/// (300 MB of libraries read from disk and scanned by the antivirus) was measured at 33 s, so any
+/// request that may be the first one after launch gets this much room.
+pub const FIRST_CONTACT_TIMEOUT: Duration = Duration::from_secs(180);
+
 pub fn version_line() -> String {
     format!("mejores-tomas {}", env!("CARGO_PKG_VERSION"))
 }
@@ -30,7 +35,7 @@ pub fn ping_engine() -> i32 {
             return 1;
         }
     };
-    match client.request("ping", json!({}), Duration::from_secs(120)) {
+    match client.request("ping", json!({}), FIRST_CONTACT_TIMEOUT) {
         Ok(value) => match value.get("version").and_then(Value::as_str) {
             Some(version) => {
                 println!("engine-ok {version}");
@@ -105,7 +110,7 @@ async fn pick_folder(
         let path = picked.into_path().map_err(|error| error.to_string())?;
         let text = path.to_string_lossy().to_string();
         client
-            .request("grant_roots", json!({ "roots": [text.clone()] }), Duration::from_secs(30))
+            .request("grant_roots", json!({ "roots": [text.clone()] }), FIRST_CONTACT_TIMEOUT)
             .map_err(failure_text)?;
         Ok(Some(text))
     })
@@ -136,7 +141,7 @@ async fn pick_files(
             files.push(path.to_string_lossy().to_string());
         }
         client
-            .request("grant_roots", json!({ "roots": folders }), Duration::from_secs(30))
+            .request("grant_roots", json!({ "roots": folders }), FIRST_CONTACT_TIMEOUT)
             .map_err(failure_text)?;
         Ok(Some(files))
     })
@@ -177,6 +182,12 @@ mod tests {
     fn the_ping_engine_flag_is_detected_only_when_exact() {
         assert!(wants_ping_engine(&args(&["mejores-tomas", "--ping-engine"])));
         assert!(!wants_ping_engine(&args(&["mejores-tomas", "--ping"])));
+    }
+
+    #[test]
+    fn granting_a_folder_outlasts_a_cold_engine_start() {
+        // 33 s measured on a cold start of the installed engine; the old 30 s limit failed there.
+        assert!(FIRST_CONTACT_TIMEOUT >= Duration::from_secs(120));
     }
 
     #[test]

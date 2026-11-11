@@ -47,6 +47,9 @@ export function button(primary: boolean): CSSProperties {
 export function HomeScreen({ onResult }: Props) {
   const [running, setRunning] = useState<Running | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // True from the click until the selection is scanned: the first answer can take a while when the
+  // engine is still starting, and the buttons must not invite a second click meanwhile.
+  const [preparing, setPreparing] = useState(false);
   const runningRef = useRef<Running | null>(null);
   const finishedEarly = useRef(new Map<string, string>());
 
@@ -97,6 +100,15 @@ export function HomeScreen({ onResult }: Props) {
   }, []);
 
   async function start(kind: "folder" | "files") {
+    setPreparing(true);
+    try {
+      await pickAndAnalyze(kind);
+    } finally {
+      setPreparing(false);
+    }
+  }
+
+  async function pickAndAnalyze(kind: "folder" | "files") {
     setError(null);
     let paths: string[] | null;
     try {
@@ -165,13 +177,28 @@ export function HomeScreen({ onResult }: Props) {
         </div>
       ) : (
         <div style={row}>
-          <button type="button" style={button(true)} onClick={() => void start("folder")}>
+          <button
+            type="button"
+            style={button(true)}
+            disabled={preparing}
+            onClick={() => void start("folder")}
+          >
             Elegir carpeta
           </button>
-          <button type="button" style={button(false)} onClick={() => void start("files")}>
+          <button
+            type="button"
+            style={button(false)}
+            disabled={preparing}
+            onClick={() => void start("files")}
+          >
             Elegir archivos
           </button>
         </div>
+      )}
+      {preparing && !running && (
+        <p role="status" style={{ margin: 0, color: "var(--fg-muted)" }}>
+          Preparando tu selección…
+        </p>
       )}
       {error && (
         <p role="alert" style={alertStyle}>

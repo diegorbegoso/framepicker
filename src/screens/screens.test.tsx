@@ -176,6 +176,27 @@ describe("HomeScreen", () => {
     await waitFor(() => expect(onResult).toHaveBeenCalledWith("s1", RESULT));
   });
 
+  it("shows that it is preparing and blocks a second click while the engine answers", async () => {
+    const user = userEvent.setup();
+    let answer: (path: string | null) => void = () => undefined;
+    mocked.pickFolder.mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    render(<HomeScreen onResult={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Elegir carpeta" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Preparando tu selección…");
+    expect(screen.getByRole("button", { name: "Elegir carpeta" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Elegir archivos" })).toBeDisabled();
+    act(() => answer(null));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Elegir carpeta" })).toBeEnabled(),
+    );
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(mocked.scan).not.toHaveBeenCalled();
+  });
+
   it("explains a folder that is not allowed", async () => {
     const user = userEvent.setup();
     mocked.pickFolder.mockResolvedValue("C:\\otra");
