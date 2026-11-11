@@ -82,15 +82,17 @@ export function ViewerModal({ item, index, count, onClose, onStep, onPick }: Pro
         aria-label={`Ampliar ${fileName(photo.path)}`}
         className={styles.dialog}
       >
-        <ZoomPane
-          photo={photo}
-          view={view}
-          onView={setView}
-          develop={develop}
-          primary
-          handleRef={handle}
-          onPercent={setPercent}
-        />
+        <div className={styles.stage}>
+          <ZoomPane
+            photo={photo}
+            view={view}
+            onView={setView}
+            develop={develop}
+            primary
+            handleRef={handle}
+            onPercent={setPercent}
+          />
+        </div>
         <div className={styles.bar}>
           <span className={styles.name}>{fileName(photo.path)}</span>
           <span className={styles.position}>

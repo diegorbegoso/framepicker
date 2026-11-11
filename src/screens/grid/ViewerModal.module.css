@@ -19,6 +19,13 @@
   box-shadow: var(--shadow-3);
 }
 
+.stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .bar {
   position: absolute;
   right: var(--space-3);

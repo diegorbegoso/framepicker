@@ -1,6 +1,5 @@
 .cell {
   position: relative;
-  aspect-ratio: 3 / 2;
   border-radius: var(--radius-control);
   background: var(--stage-raised);
   outline: 2px solid transparent;
@@ -12,7 +11,7 @@
 .picture {
   display: block;
   width: 100%;
-  height: 100%;
+  aspect-ratio: 3 / 2;
   padding: 0;
   border: 0;
   background: transparent;
@@ -25,6 +24,15 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* The placeholder sits on the dark stage, so it must not be the light skeleton grey. */
+.cell .fill {
+  background: var(--stage-raised);
+}
+
+.cell .fill::after {
+  display: none;
 }
 
 .picture:focus-visible {
