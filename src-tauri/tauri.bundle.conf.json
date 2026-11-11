@@ -1,0 +1,5 @@
+{
+  "bundle": {
+    "resources": { "../engine/dist/mejores-engine/": "engine/" }
+  }
+}
