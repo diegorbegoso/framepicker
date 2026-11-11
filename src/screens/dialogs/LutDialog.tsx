@@ -3,17 +3,19 @@ import { Button } from "../../components/Button.tsx";
 import { Dialog } from "../../components/Dialog.tsx";
 import { IconButton } from "../../components/IconButton.tsx";
 import * as engine from "../../lib/engine.ts";
-import { getViewLut, setViewLut } from "../../lib/previews.ts";
 import styles from "./LutDialog.module.css";
 
-type Props = { onClose: () => void };
+type Props = {
+  /** Called after a LUT is added or removed, so the rest of the screen reads the library again. */
+  onChanged: () => void;
+  onClose: () => void;
+};
 
 const INVALID = "Ese archivo no es un LUT 3D .cube válido.";
 
-/** The LUTs kept in the program, and which one the photos are shown through. */
-export function LutDialog({ onClose }: Props) {
+/** The LUTs kept in the program: load one once and it stays for every photo and every session. */
+export function LutDialog({ onChanged, onClose }: Props) {
   const [luts, setLuts] = useState<engine.LutInfo[]>([]);
-  const [viewing, setViewing] = useState<string | null>(getViewLut());
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("");
 
@@ -29,17 +31,6 @@ export function LutDialog({ onClose }: Props) {
     void refresh();
   }, [refresh]);
 
-  async function choose(lutId: string | null) {
-    try {
-      await engine.setSetting("view_lut", lutId);
-      setViewLut(lutId);
-      setViewing(lutId);
-      setError(null);
-    } catch {
-      setError("No se pudo cambiar el LUT de la vista.");
-    }
-  }
-
   async function load() {
     setError(null);
     try {
@@ -47,6 +38,7 @@ export function LutDialog({ onClose }: Props) {
       if (path === null) return;
       const added = await engine.addLut(path);
       await refresh();
+      onChanged();
       setStatus(`Se cargó ${added.name}. Queda guardado en el programa.`);
     } catch (failure) {
       const invalid = failure instanceof engine.EngineError && failure.code === -32602;
@@ -56,9 +48,9 @@ export function LutDialog({ onClose }: Props) {
 
   async function remove(lut: engine.LutInfo) {
     try {
-      if (viewing === lut.id) await choose(null);
       await engine.removeLut(lut.id);
       await refresh();
+      onChanged();
       setStatus(`Se quitó ${lut.name}.`);
     } catch {
       setError("No se pudo quitar el LUT.");
@@ -69,41 +61,23 @@ export function LutDialog({ onClose }: Props) {
     <Dialog title="Biblioteca de LUT" onClose={onClose}>
       <p className={styles.help}>
         Un LUT cambia el color de las fotos, como un filtro. Se carga una sola vez y queda guardado
-        en el programa. Aquí eliges con cuál ver las fotos; al exportar eliges si se aplica.
+        en el programa. Después lo eliges en «Corrección básica», para una foto o para un grupo.
       </p>
       <Button variant="primary" icon="folder" onClick={() => void load()}>
         Cargar LUT (.cube)…
       </Button>
-      <fieldset className={styles.list}>
-        <legend className={styles.legend}>Ver las fotos con</legend>
-        <label className={styles.row}>
-          <input
-            type="radio"
-            name="view-lut"
-            checked={viewing === null}
-            onChange={() => void choose(null)}
-          />
-          <span className={styles.name}>Ninguno (como salieron de la cámara)</span>
-        </label>
+      <ul className={styles.list} aria-label="LUT guardados">
         {luts.map((lut) => (
-          <div key={lut.id} className={styles.row}>
-            <label className={styles.pick}>
-              <input
-                type="radio"
-                name="view-lut"
-                checked={viewing === lut.id}
-                onChange={() => void choose(lut.id)}
-              />
-              <span className={styles.name}>{lut.name}</span>
-              <span className={styles.size}>
-                {lut.size}×{lut.size}×{lut.size}
-              </span>
-            </label>
+          <li key={lut.id} className={styles.row}>
+            <span className={styles.name}>{lut.name}</span>
+            <span className={styles.size}>
+              {lut.size}×{lut.size}×{lut.size}
+            </span>
             <IconButton icon="x" label={`Quitar ${lut.name}`} onClick={() => void remove(lut)} />
-          </div>
+          </li>
         ))}
-        {luts.length === 0 ? <p className={styles.empty}>Aún no has cargado ningún LUT.</p> : null}
-      </fieldset>
+      </ul>
+      {luts.length === 0 ? <p className={styles.empty}>Aún no has cargado ningún LUT.</p> : null}
       <p role="status" className={styles.status}>
         {status}
       </p>

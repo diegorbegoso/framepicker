@@ -143,7 +143,11 @@ describe("looking at the photos", () => {
   it("asks for the big view of the photo on screen", async () => {
     renderReview();
     await waitFor(() =>
-      expect(mocked.preview).toHaveBeenCalledWith("IMG_1", { maxPx: 1600, develop: false }),
+      expect(mocked.preview).toHaveBeenCalledWith("IMG_1", {
+        maxPx: 1600,
+        develop: false,
+        edited: true,
+      }),
     );
   });
 });
@@ -273,7 +277,11 @@ describe("zoom and compare", () => {
     renderReview();
     await user.click(screen.getByRole("button", { name: "Alternar entre ajustar y 100 %" }));
     await waitFor(() =>
-      expect(mocked.preview).toHaveBeenCalledWith("IMG_2", { maxPx: 8192, develop: false }),
+      expect(mocked.preview).toHaveBeenCalledWith("IMG_2", {
+        maxPx: 8192,
+        develop: false,
+        edited: true,
+      }),
     );
     expect(
       screen.getByRole("button", { name: "Alternar entre ajustar y 100 %" }),
@@ -286,7 +294,11 @@ describe("zoom and compare", () => {
     const photo = await screen.findByAltText("Foto IMG_2.jpg");
     await user.click(photo);
     await waitFor(() =>
-      expect(mocked.preview).toHaveBeenCalledWith("IMG_2", { maxPx: 8192, develop: false }),
+      expect(mocked.preview).toHaveBeenCalledWith("IMG_2", {
+        maxPx: 8192,
+        develop: false,
+        edited: true,
+      }),
     );
     const zoom = screen.getByRole("button", { name: "Alternar entre ajustar y 100 %" });
     await waitFor(() => expect(zoom).not.toHaveTextContent(/^\d{1,2} %$/));
@@ -303,7 +315,11 @@ describe("zoom and compare", () => {
       { coords: { clientX: 60, clientY: 40 } },
       { keys: "[/MouseLeft]" },
     ]);
-    expect(mocked.preview).not.toHaveBeenCalledWith("IMG_2", { maxPx: 8192, develop: false });
+    expect(mocked.preview).not.toHaveBeenCalledWith("IMG_2", {
+      maxPx: 8192,
+      develop: false,
+      edited: true,
+    });
   });
 
   it("offers the high-resolution view only for RAW photos", async () => {
@@ -317,7 +333,11 @@ describe("zoom and compare", () => {
       "true",
     );
     await waitFor(() =>
-      expect(mocked.preview).toHaveBeenCalledWith("IMG_4", { maxPx: 8192, develop: true }),
+      expect(mocked.preview).toHaveBeenCalledWith("IMG_4", {
+        maxPx: 8192,
+        develop: true,
+        edited: true,
+      }),
     );
   });
 });

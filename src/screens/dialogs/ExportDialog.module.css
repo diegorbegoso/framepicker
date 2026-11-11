@@ -54,3 +54,9 @@
   color: var(--destructive);
   font-weight: 550;
 }
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}

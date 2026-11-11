@@ -94,10 +94,52 @@ export const ExportOptions = z.object({
   /** 0 keeps the size. */
   long_edge: z.number().int(),
   quality: z.number().int(),
-  lut_id: z.string().nullable(),
+  /** Save each photo with the corrections and LUT it carries. */
+  apply_edits: z.boolean(),
   name_pattern: z.string(),
 });
 export type ExportOptions = z.infer<typeof ExportOptions>;
+
+/** The basic corrections of one photo. All zero and no LUT means "as shot". */
+export const Adjustments = z.object({
+  exposure: z.number(),
+  contrast: z.number(),
+  highlights: z.number(),
+  shadows: z.number(),
+  temperature: z.number(),
+  tint: z.number(),
+  saturation: z.number(),
+  lut_id: z.string().nullable(),
+  lut_strength: z.number(),
+});
+export type Adjustments = z.infer<typeof Adjustments>;
+
+export const NEUTRAL: Adjustments = {
+  exposure: 0,
+  contrast: 0,
+  highlights: 0,
+  shadows: 0,
+  temperature: 0,
+  tint: 0,
+  saturation: 0,
+  lut_id: null,
+  lut_strength: 1,
+};
+
+const SLIDER_KEYS = [
+  "exposure",
+  "contrast",
+  "highlights",
+  "shadows",
+  "temperature",
+  "tint",
+  "saturation",
+] as const;
+
+/** True when the corrections change nothing: every control at zero and no LUT. */
+export function isNeutral(adj: Adjustments): boolean {
+  return adj.lut_id === null && SLIDER_KEYS.every((key) => adj[key] === 0);
+}
 
 export const Weights = z.object({ sharpness: z.number(), exposure: z.number(), eyes: z.number() });
 export type Weights = z.infer<typeof Weights>;
@@ -112,8 +154,6 @@ export const Settings = z.object({
   weights: Weights,
   per_burst: z.number().int(),
   min_quality: MinQuality,
-  /** The LUT the previews are shown through, or null for the photos as shot. */
-  view_lut: z.string().nullable().optional(),
   export_options: ExportOptions.optional(),
   time_gap_s: z.number(),
   hamming_max: z.number().int(),
@@ -148,14 +188,14 @@ export function setPick(burstId: string, photoId: string, selected: boolean) {
 /** `develop` asks a RAW for a half-size demosaic instead of the camera's embedded preview. */
 export async function preview(
   photoId: string,
-  options: { maxPx?: number; develop?: boolean; lutId?: string | null } = {},
+  options: { maxPx?: number; develop?: boolean; edited?: boolean } = {},
 ): Promise<PreviewImage> {
-  const { maxPx = 960, develop = false, lutId = null } = options;
+  const { maxPx = 960, develop = false, edited = false } = options;
   const params = {
     photo_id: photoId,
     max_px: maxPx,
     develop,
-    ...(lutId ? { lut_id: lutId } : {}),
+    ...(edited ? { edited: true } : {}),
   };
   const reply = await engineRequest("preview", params, PreviewResult);
   return {
@@ -176,10 +216,20 @@ export function confirmBurst(burstId: string) {
  * Exports the chosen photos of a session to `dest` (a folder the shell already granted): copied
  * as they are, or re-encoded with the options.
  */
-export function exportSelection(sessionId: string, dest: string, options?: ExportOptions) {
+export function exportSelection(
+  sessionId: string,
+  dest: string,
+  options?: ExportOptions,
+  photoIds?: string[],
+) {
   return engineRequest(
     "export",
-    { session_id: sessionId, dest, ...(options ? { options } : {}) },
+    {
+      session_id: sessionId,
+      dest,
+      ...(options ? { options } : {}),
+      ...(photoIds ? { photo_ids: photoIds } : {}),
+    },
     JobRef,
   );
 }
@@ -246,6 +296,27 @@ export function organizeApply(sessionId: string, folderName: string) {
 
 export function organizeUndo(batchId: string) {
   return engineRequest("organize_undo", { batch_id: batchId }, UndoResult);
+}
+
+const EditsResult = z.object({ edits: z.record(z.string(), Adjustments) });
+const EditsSaved = z.object({ photo_ids: z.array(z.string()) });
+
+/** The corrections of every edited photo of the session, by photo id. */
+export async function getEdits(sessionId: string): Promise<Record<string, Adjustments>> {
+  return (await engineRequest("edits_get", { session_id: sessionId }, EditsResult)).edits;
+}
+
+/** Stores the same corrections on those photos (all neutral clears them). */
+export function setEdits(sessionId: string, photoIds: string[], adjustments: Adjustments) {
+  return engineRequest(
+    "edits_set",
+    { session_id: sessionId, photo_ids: photoIds, adjustments },
+    EditsSaved,
+  );
+}
+
+export function resetEdits(sessionId: string, photoIds: string[]) {
+  return engineRequest("edits_reset", { session_id: sessionId, photo_ids: photoIds }, EditsSaved);
 }
 
 export function getSettings() {

@@ -1,6 +1,5 @@
 import { useEffect } from "react";
-import { getSettings } from "../../lib/engine.ts";
-import { previews, setViewLut } from "../../lib/previews.ts";
+import { previews } from "../../lib/previews.ts";
 import { setFullscreen } from "../../lib/window.ts";
 
 type Input = {
@@ -22,17 +21,6 @@ export function useReviewEffects({ immersive, active, previousId, nextId }: Inpu
     },
     [],
   );
-  // The LUT the person last chose for viewing stays on between runs.
-  useEffect(() => {
-    void (async () => {
-      try {
-        const stored = await getSettings();
-        setViewLut(stored?.view_lut ?? null);
-      } catch {
-        // Without the engine (tests, browser preview) the photos simply show as shot.
-      }
-    })();
-  }, []);
   useEffect(() => {
     for (const id of [previousId, nextId]) {
       if (id) void previews.request(id, "view", 1).catch(() => undefined);

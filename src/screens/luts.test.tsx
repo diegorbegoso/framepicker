@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import * as engine from "../lib/engine.ts";
-import { getViewLut, previews, setViewLut } from "../lib/previews.ts";
+import { previews } from "../lib/previews.ts";
 import { RESULT } from "./fixtures.ts";
 import { ReviewScreen } from "./ReviewScreen.tsx";
 
@@ -28,7 +28,6 @@ const WARM = { id: "l1", name: "Cálido", size: 33 };
 beforeEach(() => {
   vi.clearAllMocks();
   previews.clear();
-  setViewLut(null);
   mocked.onEngineEvent.mockResolvedValue(() => undefined);
   mocked.preview.mockResolvedValue({
     url: "data:image/jpeg;base64,AAAA",
@@ -94,30 +93,13 @@ describe("the LUT library", () => {
     expect(mocked.addLut).not.toHaveBeenCalled();
   });
 
-  it("shows the photos through the chosen LUT, remembers it, and can go back to none", async () => {
-    const { user, dialog } = await openLuts();
-    await user.click(await within(dialog).findByRole("radio", { name: /Cálido/ }));
-    expect(mocked.setSetting).toHaveBeenCalledWith("view_lut", "l1");
-    expect(getViewLut()).toBe("l1");
-    await waitFor(() =>
-      expect(mocked.preview).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({ lutId: "l1" }),
-      ),
-    );
-    await user.click(within(dialog).getByRole("radio", { name: /Ninguno/ }));
-    expect(mocked.setSetting).toHaveBeenLastCalledWith("view_lut", null);
-    expect(getViewLut()).toBeNull();
-  });
-
-  it("stops using a LUT when it is removed", async () => {
+  it("lists each LUT with a button to remove it", async () => {
     mocked.removeLut.mockResolvedValue({ lut_id: "l1" });
     const { user, dialog } = await openLuts();
-    await user.click(await within(dialog).findByRole("radio", { name: /Cálido/ }));
+    await within(dialog).findByText("Cálido");
     mocked.listLuts.mockResolvedValue([]);
     await user.click(within(dialog).getByRole("button", { name: "Quitar Cálido" }));
     expect(mocked.removeLut).toHaveBeenCalledWith("l1");
-    expect(getViewLut()).toBeNull();
     expect(await within(dialog).findByText("Aún no has cargado ningún LUT.")).toBeInTheDocument();
   });
 

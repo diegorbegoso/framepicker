@@ -100,3 +100,25 @@
   background: var(--stage-hud);
   color: var(--stage-fg);
 }
+
+.marked {
+  outline-color: var(--stage-accent);
+  outline-width: 3px;
+}
+
+.marked.picked {
+  outline-style: double;
+}
+
+.edited {
+  position: absolute;
+  right: var(--space-1);
+  bottom: var(--space-1);
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  background: var(--stage-hud);
+  color: var(--stage-accent);
+}

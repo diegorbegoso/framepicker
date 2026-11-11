@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "../../components/Button.tsx";
 import { SegmentedControl } from "../../components/SegmentedControl.tsx";
-import type { SelectedBurst, SelectedPhoto } from "../../lib/engine.ts";
+import type { LutInfo, SelectedBurst, SelectedPhoto } from "../../lib/engine.ts";
+import { CorrectionsPanel } from "../review/CorrectionsPanel.tsx";
+import type { Scope } from "../review/scopes.ts";
+import type { Edits } from "../review/useEdits.ts";
 import { GridCell } from "./GridCell.tsx";
 import styles from "./GridScreen.module.css";
 import { between, flatten, type GridFilter, visibleItems } from "./items.ts";
@@ -11,14 +15,32 @@ type Props = {
   bursts: SelectedBurst[];
   /** False while another screen or mode is on top: the keyboard is then left alone. */
   active: boolean;
+  /** Photos marked to act on together (corrections, export): not the same as chosen. */
+  marked: ReadonlySet<string>;
+  edits: Edits;
+  luts: LutInfo[];
+  onMarkedChange: (marked: Set<string>) => void;
+  onFocusPhoto: (photoId: string | undefined) => void;
   onSetPick: (burstId: string, photo: SelectedPhoto, value: boolean) => void;
   onOpenInBurst: (burstId: string, photoId: string) => void;
+  onExport: (scope: Scope) => void;
 };
 
 const GAP = 8;
 
 /** Every photo at once. Pick or drop any of them; the sidebar shows the one you are on. */
-export function GridScreen({ bursts, active, onSetPick, onOpenInBurst }: Props) {
+export function GridScreen({
+  bursts,
+  active,
+  marked,
+  edits,
+  luts,
+  onMarkedChange,
+  onFocusPhoto,
+  onSetPick,
+  onOpenInBurst,
+  onExport,
+}: Props) {
   const [filter, setFilter] = useState<GridFilter>("all");
   const [size, setSize] = useState(180);
   const [focusedId, setFocusedId] = useState<string | undefined>();
@@ -44,6 +66,8 @@ export function GridScreen({ bursts, active, onSetPick, onOpenInBurst }: Props) 
     0,
   );
   const current = items[at];
+  const currentId = current?.photo.id;
+  useEffect(() => onFocusPhoto(currentId), [currentId, onFocusPhoto]);
 
   function focusAt(index: number) {
     const next = items[Math.min(Math.max(index, 0), items.length - 1)];
@@ -69,11 +93,29 @@ export function GridScreen({ bursts, active, onSetPick, onOpenInBurst }: Props) 
     setFocusedId(id);
   }
 
+  /** Ctrl+click marks or unmarks one photo; Shift+click marks everything from the last one. */
+  function mark(id: string, how: "toggle" | "range") {
+    const index = items.findIndex((i) => i.photo.id === id);
+    if (index < 0) return;
+    const next = new Set(marked);
+    const from = how === "range" ? items.findIndex((i) => i.photo.id === anchor.current) : -1;
+    if (from >= 0) {
+      for (const item of between(items, from, index)) next.add(item.photo.id);
+    } else if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    onMarkedChange(next);
+    anchor.current = id;
+    setFocusedId(id);
+  }
+
   const columns = () =>
     Math.max(1, Math.floor(((grid.current?.clientWidth ?? 0) + GAP) / (size + GAP)));
 
-  const latest = useRef({ items, at, current, pick, focusAt, columns });
-  latest.current = { items, at, current, pick, focusAt, columns };
+  const latest = useRef({ items, at, current, pick, mark, focusAt, columns });
+  latest.current = { items, at, current, pick, mark, focusAt, columns };
 
   useEffect(() => {
     if (!active || modal) return;
@@ -95,6 +137,8 @@ export function GridScreen({ bursts, active, onSetPick, onOpenInBurst }: Props) 
       } else if (event.key === " " && !onOtherButton && a.current) {
         event.preventDefault();
         a.pick(a.current.photo.id, false);
+      } else if ((event.key === "m" || event.key === "M") && !onOtherButton && a.current) {
+        a.mark(a.current.photo.id, "toggle");
       } else if (
         (event.key === "Enter" || event.key === "v" || event.key === "V") &&
         !onOtherButton
@@ -126,6 +170,23 @@ export function GridScreen({ bursts, active, onSetPick, onOpenInBurst }: Props) 
             options={options}
             onChange={setFilter}
           />
+          <div className={styles.marks}>
+            <span className={styles.markCount}>{marked.size} marcadas</span>
+            <Button
+              size="sm"
+              disabled={items.length === 0}
+              onClick={() => onMarkedChange(new Set([...marked, ...items.map((i) => i.photo.id)]))}
+            >
+              Marcar visibles
+            </Button>
+            <Button
+              size="sm"
+              disabled={marked.size === 0}
+              onClick={() => onMarkedChange(new Set())}
+            >
+              Limpiar marcadas
+            </Button>
+          </div>
           <label className={styles.size}>
             Tamaño
             <input
@@ -152,14 +213,17 @@ export function GridScreen({ bursts, active, onSetPick, onOpenInBurst }: Props) 
               key={item.photo.id}
               item={item}
               focused={item.photo.id === current?.photo.id}
+              marked={marked.has(item.photo.id)}
+              edited={edits.edited.has(item.photo.id)}
               setRef={(id, node) => {
                 if (node) cells.current.set(id, node);
                 else cells.current.delete(id);
               }}
-              onFocus={(id) => {
+              onFocus={(id, anchored) => {
                 setFocusedId(id);
-                anchor.current = id;
+                if (anchored) anchor.current = id;
               }}
+              onMark={mark}
               onOpen={(id) => {
                 setFocusedId(id);
                 setModal(true);
@@ -175,6 +239,14 @@ export function GridScreen({ bursts, active, onSetPick, onOpenInBurst }: Props) 
           onOpen={() => setModal(true)}
           onPick={() => current && pick(current.photo.id, false)}
           onOpenInBurst={() => current && onOpenInBurst(current.burstId, current.photo.id)}
+        />
+        <CorrectionsPanel
+          photo={current?.photo}
+          bursts={bursts}
+          marked={marked}
+          edits={edits}
+          luts={luts}
+          onExport={onExport}
         />
       </aside>
       {modal && current ? (

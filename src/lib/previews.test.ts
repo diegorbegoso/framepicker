@@ -126,4 +126,27 @@ describe("PreviewStore", () => {
     await expect(fresh).resolves.toBeDefined();
     expect(store.peek("a", "thumb")).toBeDefined();
   });
+
+  it("drops every size of a photo whose corrections changed, and ignores a late old answer", async () => {
+    const { calls, loader } = controlled();
+    const store = new PreviewStore(loader, 2);
+    const ready = store.request("a", "thumb");
+    calls[0]?.settle(true);
+    await ready;
+    const late = store.request("a", "view");
+    late.catch(() => undefined);
+    expect(store.revision("a")).toBe(0);
+    store.invalidate(["a"]);
+    expect(store.revision("a")).toBe(1);
+    expect(store.revision("b")).toBe(0);
+    expect(store.peek("a", "thumb")).toBeUndefined();
+    const again = store.request("a", "view");
+    calls[1]?.settle(true); // the answer to the request made before the change
+    await flush();
+    expect(store.peek("a", "view")).toBeUndefined();
+    await expect(late).rejects.toThrow();
+    calls[2]?.settle(true);
+    await expect(again).resolves.toBeDefined();
+    expect(store.peek("a", "view")).toBeDefined();
+  });
 });

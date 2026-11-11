@@ -1,19 +1,21 @@
-import { useCallback, useState } from "react";
-import { Icon } from "../components/Icon.tsx";
-import { SegmentedControl } from "../components/SegmentedControl.tsx";
-import { ThemeSwitch } from "../components/ThemeSwitch.tsx";
+import { useCallback, useMemo, useState } from "react";
 import { cx } from "../lib/cx.ts";
 import type { SelectedBurst, SelectedPhoto, SelectResult } from "../lib/engine.ts";
 import * as engine from "../lib/engine.ts";
 import { firstPickedIndex } from "../lib/focus.ts";
 import type { Theme } from "../lib/theme.ts";
-import { ActionsBar } from "./ActionsBar.tsx";
+import type { ExportRequest } from "./ActionsBar.tsx";
 import { GridScreen } from "./grid/GridScreen.tsx";
+import { type Mode, ReviewBar } from "./ReviewBar.tsx";
 import styles from "./ReviewScreen.module.css";
 import { type BurstFilter, BurstList, isReviewed } from "./review/BurstList.tsx";
 import { Filmstrip } from "./review/Filmstrip.tsx";
 import { PhotoViewer } from "./review/PhotoViewer.tsx";
 import { SidePanel } from "./review/SidePanel.tsx";
+import { buildScopes, type Scope } from "./review/scopes.ts";
+import { useEdits } from "./review/useEdits.ts";
+import { useLuts } from "./review/useLuts.ts";
+import { usePicks } from "./review/usePicks.ts";
 import { useReviewEffects } from "./review/useReviewEffects.ts";
 import { useReviewKeys } from "./review/useReviewKeys.ts";
 
@@ -44,19 +46,28 @@ export function ReviewScreen({
   const [focused, setFocused] = useState(() => firstPickedIndex(initial.bursts[0]?.photos ?? []));
   const [filter, setFilter] = useState<BurstFilter>("all");
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<"bursts" | "grid">("bursts");
+  const [mode, setMode] = useState<Mode>("bursts");
   const [compare, setCompare] = useState(false);
   const [referenceId, setReferenceId] = useState<string | undefined>();
   const [panelOpen, setPanelOpen] = useState(() => window.innerWidth >= 1180);
   const [error, setError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  const [marked, setMarked] = useState<ReadonlySet<string>>(new Set());
+  const [gridFocus, setGridFocus] = useState<string | undefined>();
+  const [exportRequest, setExportRequest] = useState<ExportRequest | null>(null);
+
+  const edits = useEdits(sessionId, setError);
+  const { luts, refresh: refreshLuts } = useLuts();
+  const { setPick } = usePicks(setBursts, setError, setAnnouncement);
 
   const burst = bursts.find((b) => b.id === activeId) ?? bursts[0];
   const photos = burst?.photos ?? [];
   const current: SelectedPhoto | undefined = photos[focused];
   const reference =
     photos.find((p) => p.id === referenceId) ?? photos.find((p) => p.selected) ?? photos[0];
-  const selectedCount = bursts.reduce((n, b) => n + b.photos.filter((p) => p.selected).length, 0);
+  const pickedCount = bursts.reduce((n, b) => n + b.photos.filter((p) => p.selected).length, 0);
+  const lookingAt = mode === "grid" ? gridFocus : current?.id;
+  const scopes = useMemo(() => buildScopes(bursts, lookingAt, marked), [bursts, lookingAt, marked]);
 
   const visible = filter === "todo" ? bursts.filter((b) => !isReviewed(b)) : bursts;
 
@@ -68,29 +79,6 @@ export function ReviewScreen({
     },
     [bursts],
   );
-
-  function replacePhoto(burstId: string, photoId: string, patch: Partial<SelectedPhoto>) {
-    setBursts((all) =>
-      all.map((b) =>
-        b.id !== burstId
-          ? b
-          : { ...b, photos: b.photos.map((p) => (p.id === photoId ? { ...p, ...patch } : p)) },
-      ),
-    );
-  }
-
-  async function setPick(burstId: string, photo: SelectedPhoto, next: boolean) {
-    const name = engine.fileName(photo.path);
-    replacePhoto(burstId, photo.id, { selected: next, source: "user" });
-    setAnnouncement(`${name}: ${next ? "elegida" : "no elegida"}`);
-    try {
-      await engine.setPick(burstId, photo.id, next);
-      setError(null);
-    } catch {
-      replacePhoto(burstId, photo.id, { selected: photo.selected, source: photo.source });
-      setError("No se pudo guardar la elección.");
-    }
-  }
 
   async function toggle(photo: SelectedPhoto) {
     if (burst) await setPick(burst.id, photo, !photo.selected);
@@ -155,6 +143,9 @@ export function ReviewScreen({
     setMode("bursts");
   }
 
+  const requestExport = (scope: Scope) =>
+    setExportRequest((last) => ({ id: (last?.id ?? 0) + 1, scope }));
+
   return (
     <section
       aria-label="Revisión de ráfagas"
@@ -162,23 +153,18 @@ export function ReviewScreen({
     >
       <h2 className={styles.srOnly}>Revisa tus ráfagas</h2>
       {immersive ? null : (
-        <div className={styles.tabs}>
-          <span className={styles.mark} role="img" aria-label="Mejores Tomas">
-            <Icon name="camera" size={16} />
-          </span>
-          <SegmentedControl
-            label="Vista"
-            value={mode}
-            options={[
-              { value: "bursts", label: "Ráfagas", icon: "images" },
-              { value: "grid", label: "Cuadrícula", icon: "grid" },
-            ]}
-            onChange={setMode}
-          />
-          <span className={styles.total}>{selectedCount} elegidas</span>
-          <ActionsBar sessionId={sessionId} selectedCount={selectedCount} onBusy={setBusy} />
-          <ThemeSwitch theme={theme} onThemeChange={onThemeChange} />
-        </div>
+        <ReviewBar
+          mode={mode}
+          onMode={setMode}
+          sessionId={sessionId}
+          pickedCount={pickedCount}
+          scopes={scopes}
+          exportRequest={exportRequest}
+          theme={theme}
+          onThemeChange={onThemeChange}
+          onLutsChanged={refreshLuts}
+          onBusy={setBusy}
+        />
       )}
       <div
         className={cx(styles.root, !panelOpen && styles.noPanel, immersive && styles.immersive)}
@@ -223,6 +209,11 @@ export function ReviewScreen({
           <SidePanel
             sessionId={sessionId}
             photo={current}
+            bursts={bursts}
+            marked={marked}
+            edits={edits}
+            luts={luts}
+            onExport={requestExport}
             onApplied={(next) => {
               setBursts(next);
               setFocused(firstPickedIndex(next.find((b) => b.id === burst?.id)?.photos ?? []));
@@ -235,8 +226,14 @@ export function ReviewScreen({
         <GridScreen
           bursts={bursts}
           active={active && !busy}
+          marked={marked}
+          edits={edits}
+          luts={luts}
+          onMarkedChange={setMarked}
+          onFocusPhoto={setGridFocus}
           onSetPick={(burstId, photo, value) => void setPick(burstId, photo, value)}
           onOpenInBurst={openInBurst}
+          onExport={requestExport}
         />
       ) : null}
       {error && mode === "grid" ? (

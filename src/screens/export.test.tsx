@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import * as engine from "../lib/engine.ts";
 import { EngineError, type EngineEvent } from "../lib/engine.ts";
 import { ExportDialog } from "./dialogs/ExportDialog.tsx";
+import type { Scope, ScopeIds } from "./review/scopes.ts";
 
 vi.mock("../lib/engine.ts", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/engine.ts")>();
@@ -24,7 +25,7 @@ const COPY = {
   format: "original" as const,
   long_edge: 0,
   quality: 92,
-  lut_id: null,
+  apply_edits: true,
   name_pattern: "{name}",
 };
 
@@ -39,9 +40,20 @@ beforeEach(() => {
   mocked.listLuts.mockResolvedValue([{ id: "l1", name: "Cálido", size: 33 }]);
 });
 
-function open(selectedCount = 4) {
+const ids = (n: number) => Array.from({ length: n }, (_, i) => `p${i}`);
+
+function open(picked = 4, initialScope: Scope = "picked") {
   const user = userEvent.setup();
-  render(<ExportDialog sessionId="s1" selectedCount={selectedCount} onClose={vi.fn()} />);
+  const scopes: ScopeIds = {
+    current: ["p0"],
+    burst: ids(3),
+    picked: ids(picked),
+    marked: ids(2),
+    all: ids(10),
+  };
+  render(
+    <ExportDialog sessionId="s1" scopes={scopes} initialScope={initialScope} onClose={vi.fn()} />,
+  );
   return user;
 }
 
@@ -58,7 +70,7 @@ describe("ExportDialog", () => {
     await waitFor(() => expect(mocked.onEngineEvent).toHaveBeenCalled());
     await user.click(screen.getByRole("button", { name: "Elegir carpeta y exportar" }));
     await waitFor(() =>
-      expect(mocked.exportSelection).toHaveBeenCalledWith("s1", "D:Elegidas", COPY),
+      expect(mocked.exportSelection).toHaveBeenCalledWith("s1", "D:Elegidas", COPY, undefined),
     );
     act(() => emit(exportEvent("progress", 2, 4)));
     expect(screen.getByText("Copiando 2 de 4")).toBeInTheDocument();
@@ -73,22 +85,26 @@ describe("ExportDialog", () => {
     const user = open();
     mocked.pickFolder.mockResolvedValue("D:Web");
     mocked.exportSelection.mockResolvedValue({ job_id: "e1" });
-    const dialog = screen.getByRole("dialog", { name: "Exportar fotos elegidas" });
+    const dialog = screen.getByRole("dialog", { name: "Exportar fotos" });
+    await user.selectOptions(within(dialog).getByLabelText("Qué exportar"), "Esta ráfaga (3)");
     await user.click(within(dialog).getByRole("radio", { name: "JPG" }));
     await user.selectOptions(within(dialog).getByLabelText("Lado mayor"), "2048");
-    await within(dialog).findByRole("option", { name: "Cálido" });
-    await user.selectOptions(within(dialog).getByLabelText("Aplicar LUT"), "Cálido");
+    await user.click(within(dialog).getByRole("checkbox", { name: /Aplicar las correcciones/ }));
     fireRange(within(dialog).getByRole("slider", { name: "Calidad" }), 80);
     await user.click(within(dialog).getByRole("button", { name: "Elegir carpeta y exportar" }));
     const expected = {
       format: "jpg",
       long_edge: 2048,
       quality: 80,
-      lut_id: "l1",
+      apply_edits: false,
       name_pattern: "{name}",
     };
     await waitFor(() =>
-      expect(mocked.exportSelection).toHaveBeenCalledWith("s1", "D:Web", expected),
+      expect(mocked.exportSelection).toHaveBeenCalledWith("s1", "D:Web", expected, [
+        "p0",
+        "p1",
+        "p2",
+      ]),
     );
     expect(mocked.setSetting).toHaveBeenCalledWith("export_options", expected);
     act(() => emit(exportEvent("job_done", 4)));
@@ -135,7 +151,7 @@ describe("ExportDialog", () => {
   it("is disabled with a hint when nothing is chosen", () => {
     open(0);
     expect(screen.getByRole("button", { name: "Elegir carpeta y exportar" })).toBeDisabled();
-    expect(screen.getByText("Elige al menos una foto para exportar.")).toBeInTheDocument();
+    expect(screen.getByText("No hay fotos para exportar con esta opción.")).toBeInTheDocument();
   });
 
   it("does nothing when the folder dialog is cancelled", async () => {

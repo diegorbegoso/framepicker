@@ -19,6 +19,8 @@ export type PreviewStatus = "idle" | "loading" | "ready" | "error";
 
 type Job = {
   key: string;
+  /** The photo's revision when asked: corrections made since then make the answer stale. */
+  rev: number;
   /** The cache generation it was asked in: a answer from an older one is thrown away. */
   gen: number;
   photoId: string;
@@ -45,6 +47,7 @@ export class PreviewStore {
   private seq = 0;
   private version = 0;
   private gen = 0;
+  private revs = new Map<string, number>();
 
   constructor(
     private load: Loader,
@@ -92,6 +95,7 @@ export class PreviewStore {
     const promise = new Promise<PreviewImage>((resolve, reject) => {
       this.waiting.push({
         key,
+        rev: this.revision(photoId),
         gen: this.gen,
         photoId,
         tier,
@@ -106,6 +110,26 @@ export class PreviewStore {
     this.changed();
     this.pump();
     return promise;
+  }
+
+  /** How many times this photo's corrections changed; part of what a view depends on. */
+  revision = (photoId: string | undefined): number => (photoId ? (this.revs.get(photoId) ?? 0) : 0);
+
+  /** Drops every size of these photos: their corrections changed, so what was loaded is old. */
+  invalidate(photoIds: string[]): void {
+    for (const photoId of photoIds) {
+      this.revs.set(photoId, this.revision(photoId) + 1);
+      for (const tier of Object.keys(this.ready) as Tier[]) {
+        const key = keyOf(photoId, tier);
+        this.ready[tier].delete(key);
+        this.inflight.delete(key);
+        this.failed.delete(key);
+        const queued = this.waiting.filter((job) => job.key === key);
+        this.waiting = this.waiting.filter((job) => job.key !== key);
+        for (const job of queued) job.reject(new Error("preview invalidated"));
+      }
+    }
+    this.changed();
   }
 
   /** Forgets a failure so the next request tries again. */
@@ -146,7 +170,7 @@ export class PreviewStore {
   }
 
   private finish(job: Job, image: PreviewImage): void {
-    if (job.gen !== this.gen) {
+    if (job.gen !== this.gen || job.rev !== this.revision(job.photoId)) {
       job.reject(new Error("preview cache cleared"));
       return;
     }
@@ -166,7 +190,7 @@ export class PreviewStore {
   }
 
   private fail(job: Job, reason: unknown): void {
-    if (job.gen !== this.gen) {
+    if (job.gen !== this.gen || job.rev !== this.revision(job.photoId)) {
       job.reject(reason);
       return;
     }
@@ -182,43 +206,23 @@ export class PreviewStore {
   }
 }
 
-/** The LUT every preview is shown through. Changing it forgets the previews already loaded. */
-let viewLut: string | null = null;
-const lutListeners = new Set<() => void>();
-
-export function getViewLut(): string | null {
-  return viewLut;
-}
-
-export function setViewLut(lutId: string | null): void {
-  if (lutId === viewLut) return;
-  viewLut = lutId;
-  previews.clear();
-  for (const listener of lutListeners) listener();
-}
-
-const subscribeLut = (listener: () => void) => {
-  lutListeners.add(listener);
-  return () => lutListeners.delete(listener);
-};
-
 export const previews = new PreviewStore((photoId, tier) =>
   fetchPreview(photoId, {
     maxPx: TIERS[tier].maxPx,
     develop: TIERS[tier].develop,
-    ...(viewLut ? { lutId: viewLut } : {}),
+    edited: true,
   }),
 );
 
 /** The preview of a photo at a size, loaded on demand; re-renders when it arrives. */
 export function usePreview(photoId: string | undefined, tier: Tier, priority = 1) {
   useSyncExternalStore(previews.subscribe, previews.getVersion);
-  // A new LUT empties the cache, so what is on screen has to be asked for again.
-  const lut = useSyncExternalStore(subscribeLut, getViewLut);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `lut` is the trigger to ask again.
+  // New corrections make the loaded views old, so what is on screen has to be asked for again.
+  const revision = useSyncExternalStore(previews.subscribe, () => previews.revision(photoId));
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `revision` is the trigger to ask again.
   useEffect(() => {
     if (photoId) void previews.request(photoId, tier, priority).catch(() => undefined);
-  }, [photoId, tier, priority, lut]);
+  }, [photoId, tier, priority, revision]);
   if (!photoId) return { image: undefined, status: "idle" as PreviewStatus };
   return { image: previews.peek(photoId, tier), status: previews.status(photoId, tier) };
 }

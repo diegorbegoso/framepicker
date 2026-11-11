@@ -81,7 +81,7 @@ export function useExportJob(sessionId: string, selectedCount: number) {
     };
   }, []);
 
-  async function start(options: ExportOptions, isCopy: boolean) {
+  async function start(options: ExportOptions, isCopy: boolean, photoIds?: string[]) {
     setError(null);
     setSuccess(null);
     try {
@@ -89,7 +89,7 @@ export function useExportJob(sessionId: string, selectedCount: number) {
       if (dest === null) return;
       copyMode.current = isCopy;
       update({ dest, jobId: null, done: 0, total: selectedCount });
-      const { job_id: jobId } = await exportSelection(sessionId, dest, options);
+      const { job_id: jobId } = await exportSelection(sessionId, dest, options, photoIds);
       const early = finishedEarly.current.get(jobId);
       finishedEarly.current.clear();
       if (early) finish(dest, early);
