@@ -10,9 +10,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from mejores_engine import __version__, features, grouping, scoring, settings
+from mejores_engine import __version__, export, features, grouping, scoring, settings
 from mejores_engine.analyze import ExecutorFactory, Extractor, Jobs
 from mejores_engine.rpc import (
+    DEST_INSIDE_SOURCE,
     INVALID_PARAMS,
     NOT_FOUND,
     PATH_NOT_ALLOWED,
@@ -57,7 +58,9 @@ def build_dispatcher(
             holder.append(store_factory())
         return holder[0]
 
-    jobs = Jobs(store, emitter or NullEmitter(), executor_factory, extractor)
+    sink = emitter or NullEmitter()
+    jobs = Jobs(store, sink, executor_factory, extractor)
+    exports = export.Exports(store, sink)
 
     @dispatcher.register("analyze")
     def analyze(params: dict[str, Any]) -> dict[str, Any]:
@@ -69,11 +72,31 @@ def build_dispatcher(
 
     @dispatcher.register("cancel")
     def cancel(params: dict[str, Any]) -> dict[str, Any]:
-        return jobs.cancel(_string_param(params, "job_id"))
+        job_id = _string_param(params, "job_id")
+        return exports.cancel(job_id) if exports.find(job_id) else jobs.cancel(job_id)
 
     @dispatcher.register("job_status")
     def job_status(params: dict[str, Any]) -> dict[str, Any]:
-        return jobs.get(_string_param(params, "job_id")).status()
+        job_id = _string_param(params, "job_id")
+        found = exports.find(job_id)
+        return found.status() if found else jobs.get(job_id).status()
+
+    @dispatcher.register("export")
+    def export_selection(params: dict[str, Any]) -> dict[str, Any]:
+        session_id = _string_param(params, "session_id")
+        dest = Path(_string_param(params, "dest"))
+        with store().session() as conn:
+            if (
+                conn.execute("SELECT 1 FROM sessions WHERE id = ?", (session_id,)).fetchone()
+                is None
+            ):
+                raise RpcError(NOT_FOUND, f"session not found: {session_id}")
+            folders = export.source_folders(conn, session_id)
+        if not dest.is_absolute() or not roots.is_allowed(dest):
+            raise RpcError(PATH_NOT_ALLOWED, f"destination not allowed: {dest}")
+        if any(export.is_same_or_inside(dest, folder) for folder in folders):
+            raise RpcError(DEST_INSIDE_SOURCE, "the destination is inside a source folder")
+        return {"job_id": exports.start(session_id, dest)}
 
     @dispatcher.register("ping")
     def ping(_params: dict[str, Any]) -> dict[str, Any]:
