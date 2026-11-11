@@ -140,3 +140,44 @@ def test_set_pick_and_select_validate_their_ids(tmp_path: Path) -> None:
     assert call(dispatcher, "set_pick", unknown_photo)["error"]["code"] == NOT_FOUND
     assert call(dispatcher, "set_pick", not_bool)["error"]["code"] == INVALID_PARAMS
     assert call(dispatcher, "select", {"session_id": "nope"})["error"]["code"] == NOT_FOUND
+
+
+def test_select_tells_the_interface_the_format_of_each_photo(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    seed(data)
+    dispatcher = build_dispatcher(lambda: Store(data))
+    reply = call(dispatcher, "select", {"session_id": "s"})
+    formats = {p["id"]: p["format"] for b in reply["result"]["bursts"] for p in b["photos"]}
+    assert formats == {"p1": "jpg", "p2": "jpg", "p3": "jpg"}
+
+
+def test_confirming_a_burst_marks_it_reviewed_and_keeps_its_picks(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    seed(data)
+    dispatcher = build_dispatcher(lambda: Store(data))
+    burst_id = call(dispatcher, "select", {"session_id": "s"})["result"]["bursts"][0]["id"]
+
+    confirmed = call(dispatcher, "confirm_burst", {"burst_id": burst_id})["result"]
+    assert confirmed == {"burst_id": burst_id, "confirmed": 3}
+    assert picks(call(dispatcher, "select", {"session_id": "s"})) == {
+        "p1": (False, "user"),
+        "p2": (True, "user"),
+        "p3": (False, "user"),
+    }
+
+    # A confirmed burst is the person's decision: new settings must not re-pick it.
+    call(dispatcher, "settings_set", {"key": "per_burst", "value": 3})
+    assert picks(call(dispatcher, "select", {"session_id": "s"}))["p3"] == (False, "user")
+
+
+def test_confirm_burst_refuses_unknown_bursts_and_bursts_without_selections(
+    tmp_path: Path,
+) -> None:
+    data = tmp_path / "data"
+    seed(data)
+    dispatcher = build_dispatcher(lambda: Store(data))
+    assert call(dispatcher, "confirm_burst", {"burst_id": "nope"})["error"]["code"] == NOT_FOUND
+    # `bursts` builds the groups but nothing has been selected yet.
+    burst_id = call(dispatcher, "bursts", {"session_id": "s"})["result"]["bursts"][0]["id"]
+    refused = call(dispatcher, "confirm_burst", {"burst_id": burst_id})
+    assert refused["error"]["code"] == INVALID_PARAMS

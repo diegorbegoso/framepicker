@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
 import io
 import os
 import sys
@@ -26,6 +25,7 @@ from mejores_engine.rpc import (
     serve,
 )
 from mejores_engine.scan import Roots, collect, format_of
+from mejores_engine.selftest import selftest
 from mejores_engine.store import Store
 
 FILES_LABEL = "Selección de archivos"
@@ -43,41 +43,6 @@ def _string_param(params: dict[str, Any], key: str) -> str:
     if not isinstance(value, str) or not value:
         raise RpcError(INVALID_PARAMS, f"{key} must be a non-empty string")
     return value
-
-
-MODEL_SIZE = 3758596
-
-
-def _imports(module: str) -> bool:
-    try:
-        importlib.import_module(module)
-    except Exception:  # noqa: BLE001 - selftest reports, it never raises
-        return False
-    return True
-
-
-def selftest() -> dict[str, bool]:
-    """Six checks a packaged engine must pass: data files present, libraries import, model loads."""
-    from mejores_engine import eyes, store
-
-    model = eyes.MODEL_PATH
-    checks = {
-        "migrations_present": (store.MIGRATIONS_DIR / "0001_init.sql").is_file(),
-        "model_present": model.is_file() and model.stat().st_size == MODEL_SIZE,
-        "rawpy_ok": _imports("rawpy"),
-        "cv2_ok": _imports("cv2"),
-        "mediapipe_ok": _imports("mediapipe"),
-        "landmarker_loads": False,
-    }
-    if checks["model_present"] and checks["mediapipe_ok"]:
-        try:
-            import numpy as np
-
-            eyes.score(np.full((64, 64, 3), 128, dtype=np.uint8))
-            checks["landmarker_loads"] = True
-        except Exception:  # noqa: BLE001 - a broken model is a failed check, not a crash
-            checks["landmarker_loads"] = False
-    return checks
 
 
 def build_dispatcher(
@@ -221,14 +186,23 @@ def build_dispatcher(
         max_px = params.get("max_px", 960)
         if isinstance(max_px, bool) or not isinstance(max_px, int) or not 16 <= max_px <= 8192:
             raise RpcError(INVALID_PARAMS, "max_px must be an integer from 16 to 8192")
+        develop = params.get("develop", False)
+        if not isinstance(develop, bool):
+            raise RpcError(INVALID_PARAMS, "develop must be true or false")
         with store().session() as conn:
             row = conn.execute(
                 "SELECT path, format FROM photos WHERE id = ?", (photo_id,)
             ).fetchone()
         if row is None:
             raise RpcError(NOT_FOUND, f"photo not found: {photo_id}")
-        url = features.preview_data_url(Path(row["path"]), str(row["format"]), max_px)
-        return {"data_url": url}
+        image = features.preview_image(Path(row["path"]), str(row["format"]), max_px, develop)
+        return {
+            "data_url": image.data_url,
+            "width": image.width,
+            "height": image.height,
+            "source_width": image.source_width,
+            "source_height": image.source_height,
+        }
 
     @dispatcher.register("bursts")
     def bursts(params: dict[str, Any]) -> dict[str, Any]:
@@ -252,6 +226,13 @@ def build_dispatcher(
                 raise RpcError(NOT_FOUND, f"session not found: {session_id}")
             chosen = scoring.select_session(conn, session_id, settings.get_all(conn))
         return {"bursts": chosen}
+
+    @dispatcher.register("confirm_burst")
+    def confirm_burst(params: dict[str, Any]) -> dict[str, Any]:
+        burst_id = _string_param(params, "burst_id")
+        with store().session() as conn:
+            confirmed = scoring.confirm_burst(conn, burst_id)
+        return {"burst_id": burst_id, "confirmed": confirmed}
 
     @dispatcher.register("set_pick")
     def set_pick(params: dict[str, Any]) -> dict[str, Any]:

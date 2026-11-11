@@ -55,15 +55,22 @@ def _encode_rgb(rgb: Any, path: Path) -> bytes:
     return bytes(encoded.tobytes())
 
 
-def _raw_bytes(path: Path) -> bytes:
-    """The embedded preview as JPEG bytes, or a half-size demosaic when there is none."""
+def _raw_develop_bytes(raw: Any, path: Path) -> bytes:
+    """A half-size demosaic (about 3000x2000 on a 24 MP camera) as JPEG bytes."""
+    rgb = raw.postprocess(half_size=True, use_camera_wb=True, no_auto_bright=True)
+    return _encode_rgb(rgb, path)
+
+
+def _raw_bytes(path: Path, develop: bool = False) -> bytes:
+    """The camera's embedded preview as JPEG bytes; a half-size demosaic when asked or missing."""
     try:
         with rawpy.imread(str(path)) as raw:
+            if develop:
+                return _raw_develop_bytes(raw, path)
             try:
                 thumb = raw.extract_thumb()
             except (rawpy.LibRawNoThumbnailError, rawpy.LibRawUnsupportedThumbnailError):
-                rgb = raw.postprocess(half_size=True, use_camera_wb=True, no_auto_bright=True)
-                return _encode_rgb(rgb, path)
+                return _raw_develop_bytes(raw, path)
             if thumb.format == rawpy.ThumbFormat.JPEG:
                 return bytes(thumb.data)
             if thumb.format == rawpy.ThumbFormat.BITMAP:
@@ -73,10 +80,10 @@ def _raw_bytes(path: Path) -> bytes:
         raise _failed(path) from exc
 
 
-def image_bytes(path: Path, fmt: str) -> bytes:
-    """Step 1: the bytes of an image file. Photos are opened read-only."""
+def image_bytes(path: Path, fmt: str, develop: bool = False) -> bytes:
+    """Step 1: the bytes of an image file, opened read-only. `develop` only affects RAW."""
     if fmt == "raw":
-        return _raw_bytes(path)
+        return _raw_bytes(path, develop)
     try:
         with path.open("rb") as handle:
             return handle.read()
@@ -154,15 +161,34 @@ def extract(path: Path, fmt: str, eyes: bool = False) -> Features:
     )
 
 
-def preview_data_url(path: Path, fmt: str, max_px: int = 960) -> str:
-    bgr = decode(image_bytes(path, fmt), path)
+@dataclass(frozen=True)
+class PreviewImage:
+    data_url: str
+    width: int  # of the image returned
+    height: int
+    source_width: int  # before scaling down: the size a 100 % zoom shows
+    source_height: int
+
+
+def preview_image(path: Path, fmt: str, max_px: int = 960, develop: bool = False) -> PreviewImage:
+    """A JPEG data URL no larger than `max_px`, with its size and the size it was scaled from.
+
+    `develop` asks a RAW for a half-size demosaic instead of the camera's embedded preview.
+    """
+    bgr = decode(image_bytes(path, fmt, develop), path)
     h, w = bgr.shape[:2]
-    longest = max(h, w)
-    if longest > max_px:
-        scale = max_px / longest
+    if max(h, w) > max_px:
+        scale = max_px / max(h, w)
         size = (max(1, round(w * scale)), max(1, round(h * scale)))
         bgr = np.asarray(cv2.resize(bgr, size, interpolation=cv2.INTER_AREA), dtype=np.uint8)
-    ok, encoded = cv2.imencode(".jpg", bgr, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    out_h, out_w = bgr.shape[:2]
+    quality = 80 if max(out_h, out_w) <= 640 else 92  # thumbnails stay light, big views keep detail
+    ok, encoded = cv2.imencode(".jpg", bgr, [cv2.IMWRITE_JPEG_QUALITY, quality])
     if not ok:
         raise _failed(path)
-    return "data:image/jpeg;base64," + base64.b64encode(encoded.tobytes()).decode("ascii")
+    url = "data:image/jpeg;base64," + base64.b64encode(encoded.tobytes()).decode("ascii")
+    return PreviewImage(url, int(out_w), int(out_h), int(w), int(h))
+
+
+def preview_data_url(path: Path, fmt: str, max_px: int = 960) -> str:
+    return preview_image(path, fmt, max_px).data_url

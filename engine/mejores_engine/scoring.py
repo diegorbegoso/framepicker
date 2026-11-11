@@ -13,7 +13,7 @@ from typing import Any
 
 from mejores_engine import grouping
 from mejores_engine.grouping import natural_key
-from mejores_engine.rpc import NOT_FOUND, RpcError
+from mejores_engine.rpc import INVALID_PARAMS, NOT_FOUND, RpcError
 
 METRICS = ("sharpness", "exposure", "eyes")
 
@@ -77,7 +77,7 @@ def choose(members: list[Scored], weights: dict[str, float], per_burst: int) -> 
 
 def _members(conn: sqlite3.Connection, burst_id: str) -> list[sqlite3.Row]:
     return conn.execute(
-        "SELECT p.id, p.path, s.sharpness, s.exposure, s.eyes_open FROM burst_members m "
+        "SELECT p.id, p.path, p.format, s.sharpness, s.exposure, s.eyes_open FROM burst_members m "
         "JOIN photos p ON p.id = m.photo_id LEFT JOIN scores s ON s.photo_id = p.id "
         "WHERE m.burst_id = ? ORDER BY m.position",
         (burst_id,),
@@ -135,6 +135,7 @@ def select_session(
                 {
                     "id": str(row["id"]),
                     "path": str(row["path"]),
+                    "format": str(row["format"]),
                     "scores": {
                         key: breakdown[key]
                         for key in ("sharpness", "sharpness_norm", "exposure", "eyes_open")
@@ -146,6 +147,16 @@ def select_session(
             )
         result.append({"id": burst_id, "position": int(burst["position"]), "photos": photos})
     return result
+
+
+def confirm_burst(conn: sqlite3.Connection, burst_id: str) -> int:
+    """Mark a burst as reviewed, keeping its picks as they are. Returns how many rows it marked."""
+    if conn.execute("SELECT 1 FROM bursts WHERE id = ?", (burst_id,)).fetchone() is None:
+        raise RpcError(NOT_FOUND, f"burst not found: {burst_id}")
+    marked = conn.execute("UPDATE selections SET source = 'user' WHERE burst_id = ?", (burst_id,))
+    if marked.rowcount == 0:
+        raise RpcError(INVALID_PARAMS, "the burst has no selections yet; run select first")
+    return int(marked.rowcount)
 
 
 def set_pick(conn: sqlite3.Connection, burst_id: str, photo_id: str, selected: bool) -> None:

@@ -28,6 +28,7 @@ pub const FORWARDABLE: &[&str] = &[
     "bursts",
     "select",
     "set_pick",
+    "confirm_burst",
     "export",
     "selftest",
 ];
@@ -270,6 +271,7 @@ mod tests {
     fn grant_roots_is_never_forwardable() {
         assert!(!is_forwardable("grant_roots"));
         assert!(is_forwardable("scan"));
+        assert!(is_forwardable("confirm_burst"));
         assert!(!is_forwardable("nope"));
     }
 }
