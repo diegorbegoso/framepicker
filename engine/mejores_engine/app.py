@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from mejores_engine import __version__, features, grouping, settings
+from mejores_engine import __version__, features, grouping, scoring, settings
 from mejores_engine.analyze import ExecutorFactory, Extractor, Jobs
 from mejores_engine.rpc import (
     INVALID_PARAMS,
@@ -178,6 +178,27 @@ def build_dispatcher(
                 conn, session_id, float(current["time_gap_s"]), int(current["hamming_max"])
             )
         return {"bursts": built}
+
+    @dispatcher.register("select")
+    def select(params: dict[str, Any]) -> dict[str, Any]:
+        session_id = _string_param(params, "session_id")
+        with store().session() as conn:
+            exists = conn.execute("SELECT 1 FROM sessions WHERE id = ?", (session_id,)).fetchone()
+            if exists is None:
+                raise RpcError(NOT_FOUND, f"session not found: {session_id}")
+            chosen = scoring.select_session(conn, session_id, settings.get_all(conn))
+        return {"bursts": chosen}
+
+    @dispatcher.register("set_pick")
+    def set_pick(params: dict[str, Any]) -> dict[str, Any]:
+        burst_id = _string_param(params, "burst_id")
+        photo_id = _string_param(params, "photo_id")
+        selected = params.get("selected")
+        if not isinstance(selected, bool):
+            raise RpcError(INVALID_PARAMS, "selected must be true or false")
+        with store().session() as conn:
+            scoring.set_pick(conn, burst_id, photo_id, selected)
+        return {"burst_id": burst_id, "photo_id": photo_id, "selected": selected, "source": "user"}
 
     return dispatcher
 

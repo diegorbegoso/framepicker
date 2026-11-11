@@ -354,7 +354,7 @@
       "engine/tests/test_scoring.py",
       "engine/tests/test_pipeline.py"
     ],
-    "status": "pending"
+    "status": "done"
   },
   {
     "id": "E2-T6",
