@@ -6,6 +6,7 @@ import json
 import sqlite3
 from typing import Any
 
+from mejores_engine import export_image
 from mejores_engine.rpc import INVALID_PARAMS, RpcError
 
 DEFAULTS: dict[str, Any] = {
@@ -19,6 +20,8 @@ DEFAULTS: dict[str, Any] = {
     "hamming_max": 22,
     # The LUT the previews are shown through (a LUT library id), or None for the photos as shot.
     "view_lut": None,
+    # What "Exportar" does: copy the originals, or re-encode them (see export_image.py).
+    "export_options": dict(export_image.DEFAULT_OPTIONS),
 }
 
 THEMES = ("light", "dark")
@@ -48,6 +51,8 @@ def validate(key: str, value: Any) -> Any:
         if any(n < 0 for n in numbers.values()) or sum(numbers.values()) <= 0:
             raise _bad("weights must be non-negative and not all zero")
         return numbers
+    if key == "export_options":
+        return export_image.validate(value)
     if key == "view_lut":
         if value is not None and (not isinstance(value, str) or not value):
             raise _bad("view_lut must be a LUT id or null")

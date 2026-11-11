@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from mejores_engine import export_image
+from mejores_engine.luts import Lut
 from mejores_engine.rpc import NOT_FOUND, Emitter, RpcError
 from mejores_engine.store import Store
 
@@ -88,6 +90,8 @@ def source_folders(conn: sqlite3.Connection, session_id: str) -> set[Path]:
 class ExportJob:
     id: str
     pairs: list[tuple[Path, Path]]
+    options: export_image.ExportOptions | None = None
+    lut: Lut | None = None
     kind: str = "export"
     state: str = "running"
     done: int = 0
@@ -139,12 +143,26 @@ class Exports:
             raise RpcError(NOT_FOUND, f"job not found: {job_id}")
         return job
 
-    def start(self, session_id: str, dest: Path) -> str:
+    def start(
+        self,
+        session_id: str,
+        dest: Path,
+        options: export_image.ExportOptions | None = None,
+        lut: Lut | None = None,
+    ) -> str:
         with self._store().session() as conn:
             photos = selected_paths(conn, session_id)
         if photos:
             dest.mkdir(parents=True, exist_ok=True)
-        job = ExportJob(id=str(uuid.uuid4()), pairs=plan(photos, dest))
+        renders = options is not None and options.renders
+        pairs = (
+            export_image.target_names(photos, dest, options)
+            if renders and options is not None
+            else plan(photos, dest)
+        )
+        job = ExportJob(
+            id=str(uuid.uuid4()), pairs=pairs, options=options if renders else None, lut=lut
+        )
         with self._lock:
             self._jobs[job.id] = job
         threading.Thread(target=self.run, args=(job,), name=f"export-{job.id}", daemon=True).start()
@@ -168,9 +186,12 @@ class Exports:
                     job.state = "cancelled"
                     return
                 try:
-                    copy_one(source, target)
+                    if job.options is not None:
+                        export_image.render_one(source, target, job.options, job.lut)
+                    else:
+                        copy_one(source, target)
                     job.copied += 1
-                except OSError as exc:
+                except (OSError, RpcError) as exc:
                     job.failed += 1
                     job.errors.append({"path": str(source), "message": str(exc)})
                 job.done += 1

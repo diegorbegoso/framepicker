@@ -1,0 +1,56 @@
+.count {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.help {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.field select,
+.field input[type="text"] {
+  min-width: 0;
+  width: 220px;
+  height: 36px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--fg);
+}
+
+.slider {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+}
+
+.success {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--success-soft);
+  color: var(--success);
+  font-weight: 550;
+}
+
+.error {
+  margin: 0;
+  color: var(--destructive);
+  font-weight: 550;
+}

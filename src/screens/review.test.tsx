@@ -341,9 +341,11 @@ describe("the side panel and full screen", () => {
   it("hides and shows the panel", async () => {
     const user = userEvent.setup();
     renderReview();
-    expect(screen.getByRole("button", { name: "Exportar elegidas" })).toBeEnabled();
+    expect(screen.getByRole("complementary", { name: "Panel de la ráfaga" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Panel lateral" }));
-    expect(screen.queryByRole("button", { name: "Exportar elegidas" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("complementary", { name: "Panel de la ráfaga" }),
+    ).not.toBeInTheDocument();
   });
 
   it("asks for full screen with F and leaves it with Escape", async () => {
@@ -357,7 +359,9 @@ describe("the side panel and full screen", () => {
     const user = userEvent.setup();
     const { onImmersiveChange } = renderReview({ immersive: true });
     expect(screen.queryByRole("navigation", { name: "Ráfagas" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Exportar elegidas" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("complementary", { name: "Panel de la ráfaga" }),
+    ).not.toBeInTheDocument();
     expect(vi.mocked(setFullscreen)).toHaveBeenCalledWith(true);
     await user.keyboard("{Escape}");
     expect(onImmersiveChange).toHaveBeenLastCalledWith(false);

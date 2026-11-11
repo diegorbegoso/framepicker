@@ -11,10 +11,18 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from mejores_engine import __version__, export, features, grouping, luts_library, scoring, settings
+from mejores_engine import (
+    __version__,
+    export,
+    export_api,
+    features,
+    grouping,
+    luts_library,
+    scoring,
+    settings,
+)
 from mejores_engine.analyze import ExecutorFactory, Extractor, Jobs
 from mejores_engine.rpc import (
-    DEST_INSIDE_SOURCE,
     INVALID_PARAMS,
     NOT_FOUND,
     PATH_NOT_ALLOWED,
@@ -85,22 +93,7 @@ def build_dispatcher(
         found = exports.find(job_id)
         return found.status() if found else jobs.get(job_id).status()
 
-    @dispatcher.register("export")
-    def export_selection(params: dict[str, Any]) -> dict[str, Any]:
-        session_id = _string_param(params, "session_id")
-        dest = Path(_string_param(params, "dest"))
-        with store().session() as conn:
-            if (
-                conn.execute("SELECT 1 FROM sessions WHERE id = ?", (session_id,)).fetchone()
-                is None
-            ):
-                raise RpcError(NOT_FOUND, f"session not found: {session_id}")
-            folders = export.source_folders(conn, session_id)
-        if not dest.is_absolute() or not roots.is_allowed(dest):
-            raise RpcError(PATH_NOT_ALLOWED, f"destination not allowed: {dest}")
-        if any(export.is_same_or_inside(dest, folder) for folder in folders):
-            raise RpcError(DEST_INSIDE_SOURCE, "the destination is inside a source folder")
-        return {"job_id": exports.start(session_id, dest)}
+    export_api.register(dispatcher, store, roots, exports, library)
 
     @dispatcher.register("selftest")
     def run_selftest(_params: dict[str, Any]) -> dict[str, bool]:

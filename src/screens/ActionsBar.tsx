@@ -1,17 +1,20 @@
 import { useEffect, useState } from "react";
 import { Button } from "../components/Button.tsx";
 import styles from "./ActionsBar.module.css";
+import { ExportDialog } from "./dialogs/ExportDialog.tsx";
 import { LutDialog } from "./dialogs/LutDialog.tsx";
 
-type Dialog = "luts";
+type Dialog = "luts" | "export";
 
 type Props = {
+  sessionId: string;
+  selectedCount: number;
   /** Tells the review a window is open, so the keyboard shortcuts stand down. */
   onBusy: (busy: boolean) => void;
 };
 
 /** The review's main functions, each one opening its own window. */
-export function ActionsBar({ onBusy }: Props) {
+export function ActionsBar({ sessionId, selectedCount, onBusy }: Props) {
   const [open, setOpen] = useState<Dialog | null>(null);
 
   useEffect(() => {
@@ -21,9 +24,19 @@ export function ActionsBar({ onBusy }: Props) {
 
   return (
     <div className={styles.root}>
+      <Button size="sm" variant="primary" icon="download" onClick={() => setOpen("export")}>
+        Exportar…
+      </Button>
       <Button size="sm" icon="sparkle" onClick={() => setOpen("luts")}>
         LUT…
       </Button>
+      {open === "export" ? (
+        <ExportDialog
+          sessionId={sessionId}
+          selectedCount={selectedCount}
+          onClose={() => setOpen(null)}
+        />
+      ) : null}
       {open === "luts" ? <LutDialog onClose={() => setOpen(null)} /> : null}
     </div>
   );

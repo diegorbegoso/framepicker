@@ -166,7 +166,7 @@ export function ReviewScreen({
             onChange={setMode}
           />
           <span className={styles.total}>{selectedCount} elegidas</span>
-          <ActionsBar onBusy={setBusy} />
+          <ActionsBar sessionId={sessionId} selectedCount={selectedCount} onBusy={setBusy} />
         </div>
       )}
       <div
@@ -212,7 +212,6 @@ export function ReviewScreen({
           <SidePanel
             sessionId={sessionId}
             photo={current}
-            selectedCount={selectedCount}
             onApplied={(next) => {
               setBursts(next);
               setFocused(firstPickedIndex(next.find((b) => b.id === burst?.id)?.photos ?? []));

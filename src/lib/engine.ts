@@ -89,6 +89,16 @@ export type PreviewImage = {
   sourceHeight: number;
 };
 
+export const ExportOptions = z.object({
+  format: z.enum(["original", "jpg", "png", "webp"]),
+  /** 0 keeps the size. */
+  long_edge: z.number().int(),
+  quality: z.number().int(),
+  lut_id: z.string().nullable(),
+  name_pattern: z.string(),
+});
+export type ExportOptions = z.infer<typeof ExportOptions>;
+
 export const Weights = z.object({ sharpness: z.number(), exposure: z.number(), eyes: z.number() });
 export type Weights = z.infer<typeof Weights>;
 export const MinQuality = z.object({
@@ -104,6 +114,7 @@ export const Settings = z.object({
   min_quality: MinQuality,
   /** The LUT the previews are shown through, or null for the photos as shot. */
   view_lut: z.string().nullable().optional(),
+  export_options: ExportOptions.optional(),
   time_gap_s: z.number(),
   hamming_max: z.number().int(),
 });
@@ -161,9 +172,16 @@ export function confirmBurst(burstId: string) {
   return engineRequest("confirm_burst", { burst_id: burstId }, ConfirmResult);
 }
 
-/** Copies the chosen photos of a session to `dest` (a folder the shell already granted). */
-export function exportSelection(sessionId: string, dest: string) {
-  return engineRequest("export", { session_id: sessionId, dest }, JobRef);
+/**
+ * Exports the chosen photos of a session to `dest` (a folder the shell already granted): copied
+ * as they are, or re-encoded with the options.
+ */
+export function exportSelection(sessionId: string, dest: string, options?: ExportOptions) {
+  return engineRequest(
+    "export",
+    { session_id: sessionId, dest, ...(options ? { options } : {}) },
+    JobRef,
+  );
 }
 
 export const LutInfo = z.object({ id: z.string(), name: z.string(), size: z.number() });
