@@ -1,4 +1,6 @@
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Button } from "../components/Button.tsx";
+import { Panel } from "../components/Panel.tsx";
 import {
   DEST_INSIDE_SOURCE,
   EngineError,
@@ -8,7 +10,7 @@ import {
   PATH_NOT_ALLOWED,
   pickFolder,
 } from "../lib/engine.ts";
-import { button } from "./HomeScreen.tsx";
+import styles from "./ExportPanel.module.css";
 
 type Props = { sessionId: string; selectedCount: number };
 type Copying = { dest: string; jobId: string | null; done: number; total: number };
@@ -17,17 +19,6 @@ type Finished = { state: string; copied: number };
 const INSIDE_SOURCE = "Esa carpeta está dentro de la carpeta de origen. Elige otra.";
 const NOT_ALLOWED = "Esa carpeta no está permitida. Elígela de nuevo con el botón.";
 const FAILED = "No se pudo exportar.";
-
-/** The card style shared by the side panels of the review screen. */
-export const panel: CSSProperties = {
-  background: "var(--surface)",
-  border: "1px solid var(--divider)",
-  borderRadius: "var(--radius-card)",
-  padding: "var(--space-4)",
-  display: "grid",
-  gap: "var(--space-3)",
-};
-const note: CSSProperties = { margin: 0, color: "var(--fg-muted)" };
 
 function errorMessage(failure: unknown): string {
   if (!(failure instanceof EngineError)) return FAILED;
@@ -105,30 +96,27 @@ export function ExportPanel({ sessionId, selectedCount }: Props) {
 
   const empty = selectedCount === 0;
   return (
-    <section aria-labelledby="export-title" style={panel}>
-      <h3 id="export-title" style={{ margin: 0, fontSize: "var(--text-md)" }}>
-        Exportar
-      </h3>
-      <button
-        type="button"
-        style={button(true)}
+    <Panel title="Exportar" icon="download">
+      <Button
+        variant="primary"
+        icon="download"
         disabled={empty || copying !== null}
         onClick={() => void start()}
       >
         Exportar elegidas
-      </button>
-      {empty && <p style={note}>Elige al menos una foto para exportar.</p>}
-      {copying && <p style={note}>{`Copiando ${copying.done} de ${copying.total}`}</p>}
+      </Button>
+      {empty && <p className={styles.note}>Elige al menos una foto para exportar.</p>}
+      {copying && <p className={styles.note}>{`Copiando ${copying.done} de ${copying.total}`}</p>}
       {success && (
-        <p role="status" style={{ margin: 0, color: "var(--success)" }}>
+        <p role="status" className={styles.success}>
           {success}
         </p>
       )}
       {error && (
-        <p role="alert" style={{ margin: 0, color: "var(--destructive)" }}>
+        <p role="alert" className={styles.error}>
           {error}
         </p>
       )}
-    </section>
+    </Panel>
   );
 }

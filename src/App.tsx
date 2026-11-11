@@ -1,4 +1,6 @@
-import { type CSSProperties, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import styles from "./App.module.css";
+import { Icon } from "./components/Icon.tsx";
 import type { SelectResult } from "./lib/engine.ts";
 import { applyTheme, loadTheme, type Theme } from "./lib/theme.ts";
 import { HomeScreen } from "./screens/HomeScreen.tsx";
@@ -14,53 +16,11 @@ const NAV: { id: Screen; label: string }[] = [
   { id: "settings", label: "Ajustes" },
 ];
 
-const shell: CSSProperties = {
-  minHeight: "100vh",
-  background: "var(--bg)",
-  color: "var(--fg)",
-};
-
-const header: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "var(--space-4)",
-  padding: "var(--space-3) var(--space-5)",
-  borderBottom: "1px solid var(--divider)",
-  background: "var(--surface)",
-};
-
-const title: CSSProperties = {
-  margin: 0,
-  fontSize: "var(--text-lg)",
-  lineHeight: "var(--leading-tight)",
-};
-
-const nav: CSSProperties = { display: "flex", gap: "var(--space-2)" };
-
-const main: CSSProperties = {
-  maxWidth: "var(--content-max)",
-  margin: "0 auto",
-  padding: "var(--space-5)",
-};
-
-function navButton(active: boolean): CSSProperties {
-  return {
-    font: "inherit",
-    padding: "var(--space-2) var(--space-4)",
-    borderRadius: "var(--radius-control)",
-    border: `1px solid ${active ? "var(--primary)" : "var(--border)"}`,
-    background: active ? "var(--primary)" : "var(--surface)",
-    color: active ? "var(--primary-fg)" : "var(--fg)",
-    cursor: "pointer",
-    transition: "background var(--dur-fast) var(--ease)",
-  };
-}
-
 export function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [theme, setTheme] = useState<Theme>("light");
   const [review, setReview] = useState<Review | null>(null);
+  const [immersive, setImmersive] = useState(false);
 
   useEffect(() => {
     applyTheme("light");
@@ -75,36 +35,60 @@ export function App() {
     };
   }, []);
 
+  // The review stays mounted while Ajustes is open, so picks, zoom and scroll are still there.
+  const showReview = screen === "home" && review !== null;
+  const hideChrome = showReview && immersive;
+
   return (
-    <div style={shell}>
-      <header style={header}>
-        <h1 style={title}>Mejores Tomas</h1>
-        <nav aria-label="Principal" style={nav}>
-          {NAV.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              style={navButton(screen === item.id)}
-              aria-current={screen === item.id ? "page" : undefined}
-              onClick={() => setScreen(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
-      </header>
-      <main style={main}>
+    <div className={styles.shell}>
+      {hideChrome ? null : (
+        <header className={styles.header}>
+          <div className={styles.brand}>
+            <span className={styles.mark}>
+              <Icon name="camera" size={18} />
+            </span>
+            <h1 className={styles.title}>Mejores Tomas</h1>
+          </div>
+          <nav aria-label="Principal" className={styles.nav}>
+            {NAV.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={styles.navButton}
+                aria-current={screen === item.id ? "page" : undefined}
+                onClick={() => setScreen(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        </header>
+      )}
+      <main className={showReview ? `${styles.main} ${styles.full}` : styles.main}>
+        {review ? (
+          <div className={styles.reviewHost} hidden={!showReview}>
+            <ReviewScreen
+              key={review.sessionId}
+              sessionId={review.sessionId}
+              initial={review.result}
+              active={showReview}
+              immersive={immersive}
+              onImmersiveChange={setImmersive}
+              onReset={() => {
+                setImmersive(false);
+                setReview(null);
+              }}
+            />
+          </div>
+        ) : null}
         {screen === "settings" ? (
-          <SettingsScreen theme={theme} onThemeChange={setTheme} />
-        ) : review ? (
-          <ReviewScreen
-            key={review.sessionId}
-            sessionId={review.sessionId}
-            initial={review.result}
-            onReset={() => setReview(null)}
-          />
-        ) : (
-          <HomeScreen onResult={(sessionId, result) => setReview({ sessionId, result })} />
+          <div className={styles.page}>
+            <SettingsScreen theme={theme} onThemeChange={setTheme} />
+          </div>
+        ) : review ? null : (
+          <div className={styles.page}>
+            <HomeScreen onResult={(sessionId, result) => setReview({ sessionId, result })} />
+          </div>
         )}
       </main>
     </div>

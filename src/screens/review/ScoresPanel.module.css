@@ -1,0 +1,38 @@
+.list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-1) var(--space-3);
+}
+
+.row dt {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+
+.row dd {
+  margin: 0;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  transition: width var(--dur) var(--ease-out);
+}

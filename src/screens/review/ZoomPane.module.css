@@ -1,0 +1,59 @@
+.pane {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--stage);
+  cursor: zoom-in;
+  touch-action: none;
+  user-select: none;
+}
+
+.zoomed {
+  cursor: grab;
+}
+
+.dragging {
+  cursor: grabbing;
+}
+
+.image,
+.detail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.image {
+  animation: fade var(--dur-fast) var(--ease-out);
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.waiting {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+  background: var(--stage-raised);
+}
+
+/* Top right, below the toolbar: the bottom is taken by the decision bar. */
+.label {
+  position: absolute;
+  top: 68px;
+  right: var(--space-3);
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--stage-hud);
+  color: var(--stage-fg);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  pointer-events: none;
+}

@@ -1,0 +1,110 @@
+.root {
+  flex: none;
+  display: flex;
+  min-width: 0;
+  margin: 0;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  overflow-x: auto;
+  background: var(--stage-raised);
+  border-top: 1px solid var(--stage-border);
+}
+
+.thumb {
+  flex: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+  width: 128px;
+  padding: var(--space-1);
+  border: 2px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--stage-fg-muted);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.thumb:hover {
+  background: color-mix(in srgb, var(--stage-fg) 8%, transparent);
+  color: var(--stage-fg);
+}
+
+.thumb:focus-visible {
+  outline-color: var(--stage-focus);
+}
+
+.viewing {
+  border-color: var(--stage-fg-muted);
+  color: var(--stage-fg);
+}
+
+.picked.viewing,
+.picked {
+  border-color: var(--stage-success);
+}
+
+.frame {
+  position: relative;
+  display: block;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--stage);
+}
+
+.frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+}
+
+.caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  min-width: 0;
+  min-height: 22px;
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  animation: pop var(--dur) var(--ease-spring);
+  background: color-mix(in srgb, var(--stage-success) 22%, transparent);
+  color: var(--stage-success);
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+
+.legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

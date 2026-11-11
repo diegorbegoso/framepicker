@@ -1,0 +1,127 @@
+.root {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--stage);
+  color: var(--stage-fg);
+}
+
+.panes {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+
+.compare .panes {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--stage-fg-muted);
+}
+
+/* Floating bars sit on the photo; only their controls take the pointer. */
+.toolbar,
+.hud,
+.decide {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.toolbar > *,
+.hud > *,
+.decide > * {
+  pointer-events: auto;
+}
+
+.toolbar {
+  top: var(--space-3);
+  left: var(--space-3);
+  right: var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-4);
+  border: 1px solid var(--stage-border);
+  border-radius: var(--radius-lg);
+  background: var(--stage-hud);
+  box-shadow: var(--shadow-3);
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .toolbar {
+    backdrop-filter: blur(14px);
+  }
+}
+
+.info {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.position {
+  color: var(--stage-fg-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.divider {
+  width: 1px;
+  height: 20px;
+  margin: 0 var(--space-1);
+  background: var(--stage-border);
+}
+
+/* Under the toolbar, so it never meets the decision bar at the bottom. */
+.hud {
+  top: 68px;
+  left: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.decide {
+  left: 50%;
+  bottom: var(--space-3);
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--stage-border);
+  border-radius: var(--radius-pill);
+  background: var(--stage-hud);
+  box-shadow: var(--shadow-3);
+  transform: translateX(-50%);
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .decide {
+    backdrop-filter: blur(14px);
+  }
+}

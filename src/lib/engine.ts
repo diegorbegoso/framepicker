@@ -46,6 +46,7 @@ const Scores = z.object({
 const SelectedPhoto = z.object({
   id: z.string(),
   path: z.string(),
+  format: z.enum(["jpg", "png", "raw"]),
   scores: Scores,
   selected: z.boolean(),
   source: z.enum(["auto", "user"]),
@@ -66,7 +67,23 @@ const PickResult = z.object({
   selected: z.boolean(),
   source: z.literal("user"),
 });
-const PreviewResult = z.object({ data_url: z.string().startsWith("data:image/jpeg;base64,") });
+const PreviewResult = z.object({
+  data_url: z.string().startsWith("data:image/jpeg;base64,"),
+  width: z.number(),
+  height: z.number(),
+  source_width: z.number(),
+  source_height: z.number(),
+});
+const ConfirmResult = z.object({ burst_id: z.string(), confirmed: z.number() });
+
+/** A preview image and its sizes: `sourceWidth` is what a 100 % zoom shows. */
+export type PreviewImage = {
+  url: string;
+  width: number;
+  height: number;
+  sourceWidth: number;
+  sourceHeight: number;
+};
 
 export const Weights = z.object({ sharpness: z.number(), exposure: z.number(), eyes: z.number() });
 export type Weights = z.infer<typeof Weights>;
@@ -104,9 +121,26 @@ export function setPick(burstId: string, photoId: string, selected: boolean) {
   return engineRequest("set_pick", { burst_id: burstId, photo_id: photoId, selected }, PickResult);
 }
 
-export async function preview(photoId: string, maxPx = 480): Promise<string> {
-  const reply = await engineRequest("preview", { photo_id: photoId, max_px: maxPx }, PreviewResult);
-  return reply.data_url;
+/** `develop` asks a RAW for a half-size demosaic instead of the camera's embedded preview. */
+export async function preview(
+  photoId: string,
+  options: { maxPx?: number; develop?: boolean } = {},
+): Promise<PreviewImage> {
+  const { maxPx = 960, develop = false } = options;
+  const params = { photo_id: photoId, max_px: maxPx, develop };
+  const reply = await engineRequest("preview", params, PreviewResult);
+  return {
+    url: reply.data_url,
+    width: reply.width,
+    height: reply.height,
+    sourceWidth: reply.source_width,
+    sourceHeight: reply.source_height,
+  };
+}
+
+/** Marks a burst as reviewed, keeping its picks as they are. */
+export function confirmBurst(burstId: string) {
+  return engineRequest("confirm_burst", { burst_id: burstId }, ConfirmResult);
 }
 
 /** Copies the chosen photos of a session to `dest` (a folder the shell already granted). */
