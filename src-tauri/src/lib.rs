@@ -149,11 +149,37 @@ async fn pick_files(
     .map_err(|error| error.to_string())?
 }
 
+#[tauri::command]
+async fn pick_lut(
+    app: AppHandle,
+    state: State<'_, EngineState>,
+) -> Result<Option<String>, String> {
+    let client = client(&app, &state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(picked) = app
+            .dialog()
+            .file()
+            .add_filter("LUT 3D (.cube)", &["cube"])
+            .blocking_pick_file()
+        else {
+            return Ok(None);
+        };
+        let path = picked.into_path().map_err(|error| error.to_string())?;
+        let text = path.to_string_lossy().to_string();
+        client
+            .request("grant_roots", json!({ "roots": [text.clone()] }), FIRST_CONTACT_TIMEOUT)
+            .map_err(failure_text)?;
+        Ok(Some(text))
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(EngineState(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![engine_request, pick_folder, pick_files])
+        .invoke_handler(tauri::generate_handler![engine_request, pick_folder, pick_files, pick_lut])
         .run(tauri::generate_context!())
         .expect("error while running Mejores Tomas");
 }

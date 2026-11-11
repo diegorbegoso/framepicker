@@ -19,6 +19,7 @@ import rawpy
 from numpy.typing import NDArray
 from PIL import Image
 
+from mejores_engine import luts
 from mejores_engine.rpc import DECODE_FAILED, RpcError
 
 FEATURES_VERSION = "1"
@@ -170,7 +171,13 @@ class PreviewImage:
     source_height: int
 
 
-def preview_image(path: Path, fmt: str, max_px: int = 960, develop: bool = False) -> PreviewImage:
+def preview_image(
+    path: Path,
+    fmt: str,
+    max_px: int = 960,
+    develop: bool = False,
+    lut: luts.Lut | None = None,
+) -> PreviewImage:
     """A JPEG data URL no larger than `max_px`, with its size and the size it was scaled from.
 
     `develop` asks a RAW for a half-size demosaic instead of the camera's embedded preview.
@@ -181,6 +188,8 @@ def preview_image(path: Path, fmt: str, max_px: int = 960, develop: bool = False
         scale = max_px / max(h, w)
         size = (max(1, round(w * scale)), max(1, round(h * scale)))
         bgr = np.asarray(cv2.resize(bgr, size, interpolation=cv2.INTER_AREA), dtype=np.uint8)
+    if lut is not None:
+        bgr = luts.apply(bgr, lut)
     out_h, out_w = bgr.shape[:2]
     quality = 80 if max(out_h, out_w) <= 640 else 92  # thumbnails stay light, big views keep detail
     ok, encoded = cv2.imencode(".jpg", bgr, [cv2.IMWRITE_JPEG_QUALITY, quality])

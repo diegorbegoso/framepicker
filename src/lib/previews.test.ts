@@ -110,4 +110,20 @@ describe("PreviewStore", () => {
     expect(store.status("a", "thumb")).toBe("idle");
     stop();
   });
+
+  it("throws away an answer that was asked for before the cache was cleared", async () => {
+    const { calls, loader } = controlled();
+    const store = new PreviewStore(loader, 1);
+    const stale = store.request("a", "thumb");
+    stale.catch(() => undefined);
+    store.clear(); // e.g. the LUT changed: what is in flight shows the old colours
+    const fresh = store.request("a", "thumb");
+    calls[0]?.settle(true); // the old answer arrives late
+    await flush();
+    expect(store.peek("a", "thumb")).toBeUndefined();
+    await expect(stale).rejects.toThrow();
+    calls[1]?.settle(true);
+    await expect(fresh).resolves.toBeDefined();
+    expect(store.peek("a", "thumb")).toBeDefined();
+  });
 });

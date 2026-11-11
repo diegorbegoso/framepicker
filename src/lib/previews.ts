@@ -19,6 +19,8 @@ export type PreviewStatus = "idle" | "loading" | "ready" | "error";
 
 type Job = {
   key: string;
+  /** The cache generation it was asked in: a answer from an older one is thrown away. */
+  gen: number;
   photoId: string;
   tier: Tier;
   priority: number;
@@ -42,6 +44,7 @@ export class PreviewStore {
   private running = 0;
   private seq = 0;
   private version = 0;
+  private gen = 0;
 
   constructor(
     private load: Loader,
@@ -87,7 +90,16 @@ export class PreviewStore {
     }
     this.failed.delete(key);
     const promise = new Promise<PreviewImage>((resolve, reject) => {
-      this.waiting.push({ key, photoId, tier, priority, seq: this.seq++, resolve, reject });
+      this.waiting.push({
+        key,
+        gen: this.gen,
+        photoId,
+        tier,
+        priority,
+        seq: this.seq++,
+        resolve,
+        reject,
+      });
     });
     this.inflight.set(key, promise);
     promise.catch(() => undefined);
@@ -104,6 +116,7 @@ export class PreviewStore {
 
   /** Drops everything: used when the person leaves the review. */
   clear(): void {
+    this.gen += 1;
     for (const job of this.waiting) job.reject(new Error("preview cache cleared"));
     this.waiting = [];
     this.inflight.clear();
@@ -133,6 +146,10 @@ export class PreviewStore {
   }
 
   private finish(job: Job, image: PreviewImage): void {
+    if (job.gen !== this.gen) {
+      job.reject(new Error("preview cache cleared"));
+      return;
+    }
     if (this.inflight.get(job.key) !== undefined) {
       const cache = this.ready[job.tier];
       cache.set(job.key, image);
@@ -149,6 +166,10 @@ export class PreviewStore {
   }
 
   private fail(job: Job, reason: unknown): void {
+    if (job.gen !== this.gen) {
+      job.reject(reason);
+      return;
+    }
     this.inflight.delete(job.key);
     this.failed.add(job.key);
     job.reject(reason);
@@ -161,16 +182,43 @@ export class PreviewStore {
   }
 }
 
+/** The LUT every preview is shown through. Changing it forgets the previews already loaded. */
+let viewLut: string | null = null;
+const lutListeners = new Set<() => void>();
+
+export function getViewLut(): string | null {
+  return viewLut;
+}
+
+export function setViewLut(lutId: string | null): void {
+  if (lutId === viewLut) return;
+  viewLut = lutId;
+  previews.clear();
+  for (const listener of lutListeners) listener();
+}
+
+const subscribeLut = (listener: () => void) => {
+  lutListeners.add(listener);
+  return () => lutListeners.delete(listener);
+};
+
 export const previews = new PreviewStore((photoId, tier) =>
-  fetchPreview(photoId, { maxPx: TIERS[tier].maxPx, develop: TIERS[tier].develop }),
+  fetchPreview(photoId, {
+    maxPx: TIERS[tier].maxPx,
+    develop: TIERS[tier].develop,
+    ...(viewLut ? { lutId: viewLut } : {}),
+  }),
 );
 
 /** The preview of a photo at a size, loaded on demand; re-renders when it arrives. */
 export function usePreview(photoId: string | undefined, tier: Tier, priority = 1) {
   useSyncExternalStore(previews.subscribe, previews.getVersion);
+  // A new LUT empties the cache, so what is on screen has to be asked for again.
+  const lut = useSyncExternalStore(subscribeLut, getViewLut);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `lut` is the trigger to ask again.
   useEffect(() => {
     if (photoId) void previews.request(photoId, tier, priority).catch(() => undefined);
-  }, [photoId, tier, priority]);
+  }, [photoId, tier, priority, lut]);
   if (!photoId) return { image: undefined, status: "idle" as PreviewStatus };
   return { image: previews.peek(photoId, tier), status: previews.status(photoId, tier) };
 }

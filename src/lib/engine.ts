@@ -102,6 +102,8 @@ export const Settings = z.object({
   weights: Weights,
   per_burst: z.number().int(),
   min_quality: MinQuality,
+  /** The LUT the previews are shown through, or null for the photos as shot. */
+  view_lut: z.string().nullable().optional(),
   time_gap_s: z.number(),
   hamming_max: z.number().int(),
 });
@@ -135,10 +137,15 @@ export function setPick(burstId: string, photoId: string, selected: boolean) {
 /** `develop` asks a RAW for a half-size demosaic instead of the camera's embedded preview. */
 export async function preview(
   photoId: string,
-  options: { maxPx?: number; develop?: boolean } = {},
+  options: { maxPx?: number; develop?: boolean; lutId?: string | null } = {},
 ): Promise<PreviewImage> {
-  const { maxPx = 960, develop = false } = options;
-  const params = { photo_id: photoId, max_px: maxPx, develop };
+  const { maxPx = 960, develop = false, lutId = null } = options;
+  const params = {
+    photo_id: photoId,
+    max_px: maxPx,
+    develop,
+    ...(lutId ? { lut_id: lutId } : {}),
+  };
   const reply = await engineRequest("preview", params, PreviewResult);
   return {
     url: reply.data_url,
@@ -157,6 +164,30 @@ export function confirmBurst(burstId: string) {
 /** Copies the chosen photos of a session to `dest` (a folder the shell already granted). */
 export function exportSelection(sessionId: string, dest: string) {
   return engineRequest("export", { session_id: sessionId, dest }, JobRef);
+}
+
+export const LutInfo = z.object({ id: z.string(), name: z.string(), size: z.number() });
+export type LutInfo = z.infer<typeof LutInfo>;
+
+export async function listLuts(): Promise<LutInfo[]> {
+  return (await engineRequest("luts_list", {}, z.object({ luts: z.array(LutInfo) }))).luts;
+}
+
+/** Copies a `.cube` file (picked with `pickLut`) into the program's own library. */
+export function addLut(path: string) {
+  return engineRequest("luts_add", { path }, LutInfo);
+}
+
+export function removeLut(lutId: string) {
+  return engineRequest("luts_remove", { lut_id: lutId }, z.object({ lut_id: z.string() }));
+}
+
+/** Native dialog for a `.cube` file; the shell grants it to the engine. `null` when cancelled. */
+export async function pickLut(): Promise<string | null> {
+  return z
+    .string()
+    .nullable()
+    .parse(await invoke("pick_lut"));
 }
 
 export function getSettings() {

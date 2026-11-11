@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from mejores_engine import __version__, export, features, grouping, scoring, settings
+from mejores_engine import __version__, export, features, grouping, luts_library, scoring, settings
 from mejores_engine.analyze import ExecutorFactory, Extractor, Jobs
 from mejores_engine.rpc import (
     DEST_INSIDE_SOURCE,
@@ -63,6 +63,8 @@ def build_dispatcher(
     sink = emitter or NullEmitter()
     jobs = Jobs(store, sink, executor_factory, extractor)
     exports = export.Exports(store, sink)
+    library = luts_library.LutLibrary(store)
+    luts_library.register(dispatcher, library, roots)
 
     @dispatcher.register("analyze")
     def analyze(params: dict[str, Any]) -> dict[str, Any]:
@@ -189,13 +191,17 @@ def build_dispatcher(
         develop = params.get("develop", False)
         if not isinstance(develop, bool):
             raise RpcError(INVALID_PARAMS, "develop must be true or false")
+        lut_id = params.get("lut_id")
+        if lut_id is not None and not isinstance(lut_id, str):
+            raise RpcError(INVALID_PARAMS, "lut_id must be a string")
+        lut = library.get(lut_id) if lut_id else None
         with store().session() as conn:
             row = conn.execute(
                 "SELECT path, format FROM photos WHERE id = ?", (photo_id,)
             ).fetchone()
         if row is None:
             raise RpcError(NOT_FOUND, f"photo not found: {photo_id}")
-        image = features.preview_image(Path(row["path"]), str(row["format"]), max_px, develop)
+        image = features.preview_image(Path(row["path"]), str(row["format"]), max_px, develop, lut)
         return {
             "data_url": image.data_url,
             "width": image.width,

@@ -17,6 +17,8 @@ DEFAULTS: dict[str, Any] = {
     "min_quality": {"sharpness": 90.0, "exposure": 0.55, "eyes": 0.40},
     "time_gap_s": 2.0,
     "hamming_max": 22,
+    # The LUT the previews are shown through (a LUT library id), or None for the photos as shot.
+    "view_lut": None,
 }
 
 THEMES = ("light", "dark")
@@ -46,6 +48,10 @@ def validate(key: str, value: Any) -> Any:
         if any(n < 0 for n in numbers.values()) or sum(numbers.values()) <= 0:
             raise _bad("weights must be non-negative and not all zero")
         return numbers
+    if key == "view_lut":
+        if value is not None and (not isinstance(value, str) or not value):
+            raise _bad("view_lut must be a LUT id or null")
+        return value
     if key == "min_quality":
         if not isinstance(value, dict) or set(value) != {"sharpness", "exposure", "eyes"}:
             raise _bad("min_quality needs exactly sharpness, exposure and eyes")

@@ -4,6 +4,7 @@ import { cx } from "../lib/cx.ts";
 import type { SelectedBurst, SelectedPhoto, SelectResult } from "../lib/engine.ts";
 import * as engine from "../lib/engine.ts";
 import { firstPickedIndex } from "../lib/focus.ts";
+import { ActionsBar } from "./ActionsBar.tsx";
 import { GridScreen } from "./grid/GridScreen.tsx";
 import styles from "./ReviewScreen.module.css";
 import { type BurstFilter, BurstList, isReviewed } from "./review/BurstList.tsx";
@@ -35,6 +36,7 @@ export function ReviewScreen({
   const [activeId, setActiveId] = useState<string | undefined>(initial.bursts[0]?.id);
   const [focused, setFocused] = useState(() => firstPickedIndex(initial.bursts[0]?.photos ?? []));
   const [filter, setFilter] = useState<BurstFilter>("all");
+  const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"bursts" | "grid">("bursts");
   const [compare, setCompare] = useState(false);
   const [referenceId, setReferenceId] = useState<string | undefined>();
@@ -118,7 +120,7 @@ export function ReviewScreen({
   }
 
   useReviewKeys({
-    enabled: active && mode === "bursts",
+    enabled: active && mode === "bursts" && !busy,
     photos,
     current,
     immersive,
@@ -164,6 +166,7 @@ export function ReviewScreen({
             onChange={setMode}
           />
           <span className={styles.total}>{selectedCount} elegidas</span>
+          <ActionsBar onBusy={setBusy} />
         </div>
       )}
       <div
@@ -221,7 +224,7 @@ export function ReviewScreen({
       {mode === "grid" ? (
         <GridScreen
           bursts={bursts}
-          active={active}
+          active={active && !busy}
           onSetPick={(burstId, photo, value) => void setPick(burstId, photo, value)}
           onOpenInBurst={openInBurst}
         />

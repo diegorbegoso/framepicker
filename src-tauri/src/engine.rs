@@ -30,6 +30,9 @@ pub const FORWARDABLE: &[&str] = &[
     "set_pick",
     "confirm_burst",
     "export",
+    "luts_list",
+    "luts_add",
+    "luts_remove",
     "selftest",
 ];
 
@@ -272,6 +275,8 @@ mod tests {
         assert!(!is_forwardable("grant_roots"));
         assert!(is_forwardable("scan"));
         assert!(is_forwardable("confirm_burst"));
+        assert!(is_forwardable("luts_add"));
+        assert!(!is_forwardable("pick_lut"));
         assert!(!is_forwardable("nope"));
     }
 }
