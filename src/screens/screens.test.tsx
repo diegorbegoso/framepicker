@@ -39,6 +39,7 @@ beforeEach(() => {
     theme: "light",
     weights: { sharpness: 0.6, exposure: 0.2, eyes: 0.2 },
     per_burst: 1,
+    min_quality: { sharpness: 90, exposure: 0.55, eyes: 0.4 },
     time_gap_s: 2,
     hamming_max: 22,
   });

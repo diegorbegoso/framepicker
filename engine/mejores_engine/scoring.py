@@ -70,9 +70,30 @@ def rank(members: list[Scored], weights: dict[str, float]) -> list[dict[str, Any
     ]
 
 
-def choose(members: list[Scored], weights: dict[str, float], per_burst: int) -> list[str]:
+def shortfalls(member: Scored, minimums: dict[str, float] | None) -> list[str]:
+    """Which minimums this photo misses. Eyes only count when a face was found."""
+    if not minimums:
+        return []
+    missed = []
+    if member.sharpness < minimums.get("sharpness", 0.0):
+        missed.append("sharpness")
+    if member.exposure < minimums.get("exposure", 0.0):
+        missed.append("exposure")
+    if member.eyes_open is not None and member.eyes_open < minimums.get("eyes", 0.0):
+        missed.append("eyes")
+    return missed
+
+
+def choose(
+    members: list[Scored],
+    weights: dict[str, float],
+    per_burst: int,
+    minimums: dict[str, float] | None = None,
+) -> list[str]:
+    """The best frames among those that meet the minimums; possibly none."""
+    fit = {m.photo_id for m in members if not shortfalls(m, minimums)}
     ranked = sorted(rank(members, weights), key=lambda r: (-r["combined"], natural_key(r["name"])))
-    return [row["photo_id"] for row in ranked[:per_burst]]
+    return [row["photo_id"] for row in ranked if row["photo_id"] in fit][:per_burst]
 
 
 def _members(conn: sqlite3.Connection, burst_id: str) -> list[sqlite3.Row]:
@@ -94,6 +115,7 @@ def select_session(
         )
     weights = {name: float(value) for name, value in current["weights"].items()}
     per_burst = int(current["per_burst"])
+    minimums = {name: float(value) for name, value in current["min_quality"].items()}
     bursts = conn.execute(
         "SELECT id, position FROM bursts WHERE session_id = ? ORDER BY position", (session_id,)
     ).fetchall()
@@ -115,7 +137,7 @@ def select_session(
             "SELECT 1 FROM selections WHERE burst_id = ? AND source = 'user'", (burst_id,)
         ).fetchone()
         if user_locked is None:
-            picked = set(choose(members, weights, per_burst))
+            picked = set(choose(members, weights, per_burst, minimums))
             for member in members:
                 conn.execute(
                     "INSERT OR REPLACE INTO selections (burst_id, photo_id, source, selected) "
@@ -129,8 +151,9 @@ def select_session(
             )
         }
         photos = []
-        for row, breakdown in zip(rows, rank(members, weights), strict=True):
+        for row, member, breakdown in zip(rows, members, rank(members, weights), strict=True):
             selection = stored.get(str(row["id"]))
+            missed = shortfalls(member, minimums)
             photos.append(
                 {
                     "id": str(row["id"]),
@@ -143,9 +166,17 @@ def select_session(
                     | {"combined": breakdown["combined"]},
                     "selected": bool(selection["selected"]) if selection else False,
                     "source": str(selection["source"]) if selection else "auto",
+                    "fails": missed,
                 }
             )
-        result.append({"id": burst_id, "position": int(burst["position"]), "photos": photos})
+        result.append(
+            {
+                "id": burst_id,
+                "position": int(burst["position"]),
+                "no_pick": all(bool(p["fails"]) for p in photos),
+                "photos": photos,
+            }
+        )
     return result
 
 

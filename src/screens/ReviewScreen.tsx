@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { cx } from "../lib/cx.ts";
 import type { SelectedBurst, SelectedPhoto, SelectResult } from "../lib/engine.ts";
 import * as engine from "../lib/engine.ts";
+import { firstPickedIndex } from "../lib/focus.ts";
 import { previews } from "../lib/previews.ts";
 import { setFullscreen } from "../lib/window.ts";
 import { ExportPanel } from "./ExportPanel.tsx";
@@ -34,7 +35,7 @@ export function ReviewScreen({
 }: Props) {
   const [bursts, setBursts] = useState<SelectedBurst[]>(initial.bursts);
   const [activeId, setActiveId] = useState<string | undefined>(initial.bursts[0]?.id);
-  const [focused, setFocused] = useState(0);
+  const [focused, setFocused] = useState(() => firstPickedIndex(initial.bursts[0]?.photos ?? []));
   const [filter, setFilter] = useState<BurstFilter>("all");
   const [compare, setCompare] = useState(false);
   const [referenceId, setReferenceId] = useState<string | undefined>();
@@ -51,11 +52,14 @@ export function ReviewScreen({
 
   const visible = filter === "todo" ? bursts.filter((b) => !isReviewed(b)) : bursts;
 
-  const selectBurst = useCallback((id: string) => {
-    setActiveId(id);
-    setFocused(0);
-    setReferenceId(undefined);
-  }, []);
+  const selectBurst = useCallback(
+    (id: string) => {
+      setActiveId(id);
+      setFocused(firstPickedIndex(bursts.find((b) => b.id === id)?.photos ?? []));
+      setReferenceId(undefined);
+    },
+    [bursts],
+  );
 
   function replacePhoto(burstId: string, photoId: string, patch: Partial<SelectedPhoto>) {
     setBursts((all) =>
@@ -191,7 +195,14 @@ export function ReviewScreen({
       {panelOpen && !immersive ? (
         <aside aria-label="Panel de la ráfaga" className={styles.side}>
           <ScoresPanel photo={current} />
-          <SettingsPanel sessionId={sessionId} onApplied={setBursts} onError={setError} />
+          <SettingsPanel
+            sessionId={sessionId}
+            onApplied={(next) => {
+              setBursts(next);
+              setFocused(firstPickedIndex(next.find((b) => b.id === burst?.id)?.photos ?? []));
+            }}
+            onError={setError}
+          />
           <ExportPanel sessionId={sessionId} selectedCount={selectedCount} />
           <ShortcutsHelp />
         </aside>

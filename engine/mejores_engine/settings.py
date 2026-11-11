@@ -12,6 +12,9 @@ DEFAULTS: dict[str, Any] = {
     "theme": "light",
     "weights": {"sharpness": 0.6, "exposure": 0.2, "eyes": 0.2},
     "per_burst": 1,
+    # Below any of these a photo is never picked automatically, even when it is alone in its burst.
+    # Sharpness is the absolute Laplacian variance; 0 switches a minimum off.
+    "min_quality": {"sharpness": 90.0, "exposure": 0.55, "eyes": 0.40},
     "time_gap_s": 2.0,
     "hamming_max": 22,
 }
@@ -43,6 +46,15 @@ def validate(key: str, value: Any) -> Any:
         if any(n < 0 for n in numbers.values()) or sum(numbers.values()) <= 0:
             raise _bad("weights must be non-negative and not all zero")
         return numbers
+    if key == "min_quality":
+        if not isinstance(value, dict) or set(value) != {"sharpness", "exposure", "eyes"}:
+            raise _bad("min_quality needs exactly sharpness, exposure and eyes")
+        minimums = {name: _number(value[name], f"min_quality.{name}") for name in value}
+        if minimums["sharpness"] < 0 or minimums["sharpness"] > 100000:
+            raise _bad("min_quality.sharpness must be between 0 and 100000")
+        if not all(0.0 <= minimums[name] <= 1.0 for name in ("exposure", "eyes")):
+            raise _bad("min_quality.exposure and min_quality.eyes must be between 0 and 1")
+        return minimums
     if key == "per_burst":
         if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 20:
             raise _bad("per_burst must be an integer from 1 to 20")

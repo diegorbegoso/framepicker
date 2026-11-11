@@ -21,6 +21,7 @@ export function photo(
     },
     selected,
     source,
+    fails: [],
   };
 }
 
@@ -30,11 +31,13 @@ export const RESULT: SelectResult = {
     {
       id: "b1",
       position: 0,
+      no_pick: false,
       photos: [photo("IMG_1", false, 0.5), photo("IMG_2", true), photo("IMG_3", false, 0.2)],
     },
     {
       id: "b2",
       position: 1,
+      no_pick: false,
       photos: [photo("IMG_4", true, 1, "raw"), photo("IMG_5", false, 0.4, "raw")],
     },
   ],

@@ -41,6 +41,7 @@ beforeEach(() => {
     theme: "light",
     weights: { sharpness: 0.6, exposure: 0.2, eyes: 0.2 },
     per_burst: 1,
+    min_quality: { sharpness: 90, exposure: 0.55, eyes: 0.4 },
     time_gap_s: 2,
     hamming_max: 22,
   });
@@ -160,19 +161,28 @@ describe("picking", () => {
   it("toggles it with the button too, and the button says what it will do", async () => {
     const user = userEvent.setup();
     renderReview();
-    await user.click(screen.getByRole("button", { name: "Elegir esta foto" }));
-    expect(mocked.setPick).toHaveBeenCalledWith("b1", "IMG_1", true);
-    await user.click(await screen.findByRole("button", { name: "Quitar elección" }));
-    expect(mocked.setPick).toHaveBeenLastCalledWith("b1", "IMG_1", false);
+    // The burst opens on its picked photo (IMG_2), so the button first offers to take the pick away.
+    await user.click(screen.getByRole("button", { name: "Quitar elección" }));
+    expect(mocked.setPick).toHaveBeenCalledWith("b1", "IMG_2", false);
+    await user.click(await screen.findByRole("button", { name: "Elegir esta foto" }));
+    expect(mocked.setPick).toHaveBeenLastCalledWith("b1", "IMG_2", true);
+  });
+
+  it("opens each burst on the photo that was picked, not on the first of the list", async () => {
+    const user = userEvent.setup();
+    renderReview();
+    expect(screen.getByText("2 de 3")).toBeInTheDocument();
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByText("1 de 2")).toBeInTheDocument();
   });
 
   it("puts the pick back and says so when it cannot be saved", async () => {
     const user = userEvent.setup();
     mocked.setPick.mockRejectedValue(new Error("engine down"));
     renderReview();
-    await user.click(screen.getByRole("button", { name: "Elegir esta foto" }));
+    await user.click(screen.getByRole("button", { name: "Quitar elección" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo guardar la elección.");
-    expect(thumb("IMG_1.jpg, no elegida")).toBeInTheDocument();
+    expect(thumb("IMG_2.jpg, elegida")).toBeInTheDocument();
   });
 
   it("leaves Space to a focused toolbar button", async () => {
@@ -261,7 +271,7 @@ describe("zoom and compare", () => {
     renderReview();
     await user.click(screen.getByRole("button", { name: "Alternar entre ajustar y 100 %" }));
     await waitFor(() =>
-      expect(mocked.preview).toHaveBeenCalledWith("IMG_1", { maxPx: 8192, develop: false }),
+      expect(mocked.preview).toHaveBeenCalledWith("IMG_2", { maxPx: 8192, develop: false }),
     );
     expect(
       screen.getByRole("button", { name: "Alternar entre ajustar y 100 %" }),
@@ -298,6 +308,22 @@ describe("the side panel and full screen", () => {
     for (const name of ["Peso de nitidez", "Peso de exposición", "Peso de ojos abiertos"]) {
       expect(screen.getByRole("slider", { name })).toBeInTheDocument();
     }
+  });
+
+  it("saves the minimums with the other settings and says how the picks turned out", async () => {
+    const user = userEvent.setup();
+    renderReview();
+    expect(screen.getByRole("slider", { name: "Exposición mínima" })).toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: "Ojos abiertos mínimos" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Aplicar" }));
+    await waitFor(() =>
+      expect(mocked.setSetting).toHaveBeenCalledWith("min_quality", {
+        sharpness: 90,
+        exposure: 0.55,
+        eyes: 0.4,
+      }),
+    );
+    expect(await screen.findByText(/Quedaron 2 elegidas/)).toBeInTheDocument();
   });
 
   it("refuses a count outside 1 to 20", async () => {

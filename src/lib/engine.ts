@@ -50,10 +50,14 @@ const SelectedPhoto = z.object({
   scores: Scores,
   selected: z.boolean(),
   source: z.enum(["auto", "user"]),
+  /** The minimums this photo misses; empty when it meets them all. */
+  fails: z.array(z.enum(["sharpness", "exposure", "eyes"])),
 });
 const SelectedBurst = z.object({
   id: z.string(),
   position: z.number(),
+  /** True when no photo of the burst meets the minimums, so none can be picked automatically. */
+  no_pick: z.boolean(),
   photos: z.array(SelectedPhoto),
 });
 export const SelectResult = z.object({ bursts: z.array(SelectedBurst) });
@@ -87,10 +91,17 @@ export type PreviewImage = {
 
 export const Weights = z.object({ sharpness: z.number(), exposure: z.number(), eyes: z.number() });
 export type Weights = z.infer<typeof Weights>;
+export const MinQuality = z.object({
+  sharpness: z.number(),
+  exposure: z.number(),
+  eyes: z.number(),
+});
+export type MinQuality = z.infer<typeof MinQuality>;
 export const Settings = z.object({
   theme: z.enum(["light", "dark"]),
   weights: Weights,
   per_burst: z.number().int(),
+  min_quality: MinQuality,
   time_gap_s: z.number(),
   hamming_max: z.number().int(),
 });

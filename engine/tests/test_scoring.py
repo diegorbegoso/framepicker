@@ -181,3 +181,49 @@ def test_confirm_burst_refuses_unknown_bursts_and_bursts_without_selections(
     burst_id = call(dispatcher, "bursts", {"session_id": "s"})["result"]["bursts"][0]["id"]
     refused = call(dispatcher, "confirm_burst", {"burst_id": burst_id})
     assert refused["error"]["code"] == INVALID_PARAMS
+
+
+MINIMUMS = {"sharpness": 90.0, "exposure": 0.55, "eyes": 0.40}
+
+
+def test_a_lone_photo_below_the_minimums_is_not_picked() -> None:
+    assert choose([member("IMG_1", 40)], WEIGHTS, 1, MINIMUMS) == []
+    assert choose([member("IMG_1", 400, exposure=0.3)], WEIGHTS, 1, MINIMUMS) == []
+    assert choose([member("IMG_1", 400)], WEIGHTS, 1, MINIMUMS) == ["IMG_1"]
+
+
+def test_the_best_of_those_that_qualify_wins_even_if_a_blurry_one_ranks_first() -> None:
+    members = [member("IMG_1", 80), member("IMG_2", 200), member("IMG_3", 120)]
+    assert choose(members, WEIGHTS, 2, MINIMUMS) == ["IMG_2", "IMG_3"]
+
+
+def test_eyes_only_count_when_a_face_was_found_and_zero_switches_a_minimum_off() -> None:
+    assert choose([member("IMG_1", 400, eyes=None)], WEIGHTS, 1, MINIMUMS) == ["IMG_1"]
+    assert choose([member("IMG_1", 400, eyes=0.1)], WEIGHTS, 1, MINIMUMS) == []
+    off = {"sharpness": 0.0, "exposure": 0.0, "eyes": 0.0}
+    assert choose([member("IMG_1", 1, eyes=0.0, exposure=0.0)], WEIGHTS, 1, off) == ["IMG_1"]
+
+
+def test_select_flags_what_each_photo_misses_and_bursts_with_no_pick(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    seed(data)
+    dispatcher = build_dispatcher(lambda: Store(data))
+    call(
+        dispatcher,
+        "settings_set",
+        {"key": "min_quality", "value": {"sharpness": 100000, "exposure": 0, "eyes": 0}},
+    )
+    burst = call(dispatcher, "select", {"session_id": "s"})["result"]["bursts"][0]
+    assert burst["no_pick"] is True
+    assert all(p["selected"] is False and p["fails"] == ["sharpness"] for p in burst["photos"])
+
+
+def test_min_quality_is_validated(tmp_path: Path) -> None:
+    dispatcher = build_dispatcher(lambda: Store(tmp_path / "data"))
+    for bad in (
+        {"sharpness": 1},
+        {"sharpness": -1, "exposure": 0, "eyes": 0},
+        {"sharpness": 1, "exposure": 2, "eyes": 0},
+    ):
+        reply = call(dispatcher, "settings_set", {"key": "min_quality", "value": bad})
+        assert reply["error"]["code"] == INVALID_PARAMS

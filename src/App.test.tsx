@@ -9,7 +9,12 @@ const request = vi.mocked(engineRequest);
 
 function engineWithTheme(theme: string) {
   request.mockImplementation(async (method, params, schema) => {
-    if (method === "settings_get") return schema.parse({ theme, per_burst: 1 });
+    if (method === "settings_get")
+      return schema.parse({
+        theme,
+        per_burst: 1,
+        min_quality: { sharpness: 90, exposure: 0.55, eyes: 0.4 },
+      });
     if (method === "settings_set") return schema.parse({ key: params.key, value: params.value });
     throw new Error(`unexpected method ${method}`);
   });
