@@ -123,7 +123,7 @@ def _clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
 
 
-def extract(path: Path, fmt: str) -> Features:
+def extract(path: Path, fmt: str, eyes: bool = False) -> Features:
     data = image_bytes(path, fmt)
     bgr = decode(data, path)
     gray = np.asarray(cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY), dtype=np.uint8)
@@ -134,6 +134,12 @@ def extract(path: Path, fmt: str) -> Features:
     clip_hi = float((gray >= 250).mean())
     clip_lo = float((gray <= 5).mean())
     exposure = _clamp(1 - 0.5 * abs(mean_luma - 118) / 118 - 4 * clip_hi - 2 * clip_lo, 0.0, 1.0)
+    eyes_open: float | None = None
+    if eyes:
+        # Imported lazily so that eyes=False never loads MediaPipe or the model.
+        from mejores_engine import eyes as eye_model
+
+        eyes_open = eye_model.score(bgr)
     return Features(
         width=int(w),
         height=int(h),
@@ -144,6 +150,7 @@ def extract(path: Path, fmt: str) -> Features:
         clip_hi=clip_hi,
         clip_lo=clip_lo,
         exposure=exposure,
+        eyes_open=eyes_open,
     )
 
 
