@@ -1,18 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { SegmentedControl } from "../components/SegmentedControl.tsx";
 import { cx } from "../lib/cx.ts";
 import type { SelectedBurst, SelectedPhoto, SelectResult } from "../lib/engine.ts";
 import * as engine from "../lib/engine.ts";
 import { firstPickedIndex } from "../lib/focus.ts";
-import { previews } from "../lib/previews.ts";
-import { setFullscreen } from "../lib/window.ts";
-import { ExportPanel } from "./ExportPanel.tsx";
+import { GridScreen } from "./grid/GridScreen.tsx";
 import styles from "./ReviewScreen.module.css";
 import { type BurstFilter, BurstList, isReviewed } from "./review/BurstList.tsx";
 import { Filmstrip } from "./review/Filmstrip.tsx";
 import { PhotoViewer } from "./review/PhotoViewer.tsx";
-import { ScoresPanel } from "./review/ScoresPanel.tsx";
-import { SettingsPanel } from "./review/SettingsPanel.tsx";
-import { ShortcutsHelp } from "./review/ShortcutsHelp.tsx";
+import { SidePanel } from "./review/SidePanel.tsx";
+import { useReviewEffects } from "./review/useReviewEffects.ts";
 import { useReviewKeys } from "./review/useReviewKeys.ts";
 
 type Props = {
@@ -37,6 +35,7 @@ export function ReviewScreen({
   const [activeId, setActiveId] = useState<string | undefined>(initial.bursts[0]?.id);
   const [focused, setFocused] = useState(() => firstPickedIndex(initial.bursts[0]?.photos ?? []));
   const [filter, setFilter] = useState<BurstFilter>("all");
+  const [mode, setMode] = useState<"bursts" | "grid">("bursts");
   const [compare, setCompare] = useState(false);
   const [referenceId, setReferenceId] = useState<string | undefined>();
   const [panelOpen, setPanelOpen] = useState(() => window.innerWidth >= 1180);
@@ -71,19 +70,21 @@ export function ReviewScreen({
     );
   }
 
-  async function toggle(photo: SelectedPhoto) {
-    if (!burst) return;
-    const next = !photo.selected;
+  async function setPick(burstId: string, photo: SelectedPhoto, next: boolean) {
     const name = engine.fileName(photo.path);
-    replacePhoto(burst.id, photo.id, { selected: next, source: "user" });
+    replacePhoto(burstId, photo.id, { selected: next, source: "user" });
     setAnnouncement(`${name}: ${next ? "elegida" : "no elegida"}`);
     try {
-      await engine.setPick(burst.id, photo.id, next);
+      await engine.setPick(burstId, photo.id, next);
       setError(null);
     } catch {
-      replacePhoto(burst.id, photo.id, { selected: photo.selected, source: photo.source });
+      replacePhoto(burstId, photo.id, { selected: photo.selected, source: photo.source });
       setError("No se pudo guardar la elección.");
     }
+  }
+
+  async function toggle(photo: SelectedPhoto) {
+    if (burst) await setPick(burst.id, photo, !photo.selected);
   }
 
   async function confirm() {
@@ -117,7 +118,7 @@ export function ReviewScreen({
   }
 
   useReviewKeys({
-    enabled: active,
+    enabled: active && mode === "bursts",
     photos,
     current,
     immersive,
@@ -130,82 +131,105 @@ export function ReviewScreen({
     setImmersive: onImmersiveChange,
   });
 
-  // Full screen follows the immersive mode, and is always given back on leaving the review.
-  useEffect(() => {
-    void setFullscreen(immersive && active);
-  }, [immersive, active]);
-  useEffect(
-    () => () => {
-      void setFullscreen(false);
-      previews.clear();
-    },
-    [],
-  );
+  useReviewEffects({
+    immersive,
+    active,
+    previousId: photos[focused - 1]?.id,
+    nextId: photos[focused + 1]?.id,
+  });
 
-  // Warm the photos the person is most likely to look at next.
-  const previousId = photos[focused - 1]?.id;
-  const nextId = photos[focused + 1]?.id;
-  useEffect(() => {
-    for (const id of [previousId, nextId]) {
-      if (id) void previews.request(id, "view", 1).catch(() => undefined);
-    }
-  }, [previousId, nextId]);
+  function openInBurst(burstId: string, photoId: string) {
+    const target = bursts.find((b) => b.id === burstId);
+    setActiveId(burstId);
+    setFocused(Math.max(target?.photos.findIndex((p) => p.id === photoId) ?? 0, 0));
+    setReferenceId(undefined);
+    setMode("bursts");
+  }
 
   return (
     <section
       aria-label="Revisión de ráfagas"
-      className={cx(styles.root, !panelOpen && styles.noPanel, immersive && styles.immersive)}
+      className={cx(styles.shell, immersive && styles.immersive)}
     >
       <h2 className={styles.srOnly}>Revisa tus ráfagas</h2>
       {immersive ? null : (
-        <BurstList
-          bursts={bursts}
-          activeId={burst?.id}
-          filter={filter}
-          onFilter={setFilter}
-          onSelect={selectBurst}
-          onReset={onReset}
-        />
+        <div className={styles.tabs}>
+          <SegmentedControl
+            label="Vista"
+            value={mode}
+            options={[
+              { value: "bursts", label: "Ráfagas", icon: "images" },
+              { value: "grid", label: "Cuadrícula", icon: "grid" },
+            ]}
+            onChange={setMode}
+          />
+          <span className={styles.total}>{selectedCount} elegidas</span>
+        </div>
       )}
-      <div className={styles.center}>
-        {error ? (
-          <p role="alert" className={styles.error}>
-            {error}
-          </p>
-        ) : null}
-        <PhotoViewer
-          photo={current}
-          index={focused}
-          count={photos.length}
-          reference={reference}
-          compare={compare}
-          immersive={immersive}
-          panelOpen={panelOpen && !immersive}
-          reviewed={burst ? isReviewed(burst) : false}
-          active={active}
-          onToggle={(photo) => void toggle(photo)}
-          onConfirm={() => void confirm()}
-          onCompare={() => setCompare((on) => !on)}
-          onPin={() => setReferenceId(current?.id)}
-          onImmersive={() => onImmersiveChange(!immersive)}
-          onPanel={() => setPanelOpen((open) => !open)}
-        />
-        <Filmstrip photos={photos} focused={focused} onFocus={setFocused} />
-      </div>
-      {panelOpen && !immersive ? (
-        <aside aria-label="Panel de la ráfaga" className={styles.side}>
-          <ScoresPanel photo={current} />
-          <SettingsPanel
+      <div
+        className={cx(styles.root, !panelOpen && styles.noPanel, immersive && styles.immersive)}
+        hidden={mode !== "bursts"}
+      >
+        {immersive ? null : (
+          <BurstList
+            bursts={bursts}
+            activeId={burst?.id}
+            filter={filter}
+            onFilter={setFilter}
+            onSelect={selectBurst}
+            onReset={onReset}
+          />
+        )}
+        <div className={styles.center}>
+          {error ? (
+            <p role="alert" className={styles.error}>
+              {error}
+            </p>
+          ) : null}
+          <PhotoViewer
+            photo={current}
+            index={focused}
+            count={photos.length}
+            reference={reference}
+            compare={compare}
+            immersive={immersive}
+            panelOpen={panelOpen && !immersive}
+            reviewed={burst ? isReviewed(burst) : false}
+            active={active && mode === "bursts"}
+            onToggle={(photo) => void toggle(photo)}
+            onConfirm={() => void confirm()}
+            onCompare={() => setCompare((on) => !on)}
+            onPin={() => setReferenceId(current?.id)}
+            onImmersive={() => onImmersiveChange(!immersive)}
+            onPanel={() => setPanelOpen((open) => !open)}
+          />
+          <Filmstrip photos={photos} focused={focused} onFocus={setFocused} />
+        </div>
+        {panelOpen && !immersive ? (
+          <SidePanel
             sessionId={sessionId}
+            photo={current}
+            selectedCount={selectedCount}
             onApplied={(next) => {
               setBursts(next);
               setFocused(firstPickedIndex(next.find((b) => b.id === burst?.id)?.photos ?? []));
             }}
             onError={setError}
           />
-          <ExportPanel sessionId={sessionId} selectedCount={selectedCount} />
-          <ShortcutsHelp />
-        </aside>
+        ) : null}
+      </div>
+      {mode === "grid" ? (
+        <GridScreen
+          bursts={bursts}
+          active={active}
+          onSetPick={(burstId, photo, value) => void setPick(burstId, photo, value)}
+          onOpenInBurst={openInBurst}
+        />
+      ) : null}
+      {error && mode === "grid" ? (
+        <p role="alert" className={styles.error}>
+          {error}
+        </p>
       ) : null}
       <p role="status" className={styles.srOnly}>
         {announcement}

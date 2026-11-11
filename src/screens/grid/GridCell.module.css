@@ -1,0 +1,94 @@
+.cell {
+  position: relative;
+  aspect-ratio: 3 / 2;
+  border-radius: var(--radius-control);
+  background: var(--stage-raised);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  overflow: hidden;
+  transition: outline-color var(--dur-fast) var(--ease);
+}
+
+.picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.picture img,
+.fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.picture:focus-visible {
+  outline: 2px solid var(--stage-focus);
+  outline-offset: -4px;
+}
+
+.focused {
+  outline-color: var(--stage-fg-muted);
+}
+
+.picked {
+  outline-color: var(--stage-success);
+}
+
+.cell:not(.picked) .picture img {
+  opacity: 0.8;
+}
+
+.check {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--stage-hud);
+  color: var(--stage-fg);
+  cursor: pointer;
+}
+
+.picked .check {
+  color: var(--stage-success);
+}
+
+.check:focus-visible {
+  outline: 2px solid var(--stage-focus);
+}
+
+.burst {
+  position: absolute;
+  bottom: var(--space-1);
+  left: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--stage-hud);
+  color: var(--stage-fg);
+  font-size: var(--text-xs);
+  pointer-events: none;
+}
+
+.low {
+  position: absolute;
+  top: var(--space-1);
+  left: var(--space-1);
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  background: var(--stage-hud);
+  color: var(--stage-fg);
+}
