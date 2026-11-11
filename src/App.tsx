@@ -1,6 +1,11 @@
 import { type CSSProperties, useEffect, useState } from "react";
+import type { SelectResult } from "./lib/engine.ts";
 import { applyTheme, loadTheme, type Theme } from "./lib/theme.ts";
+import { HomeScreen } from "./screens/HomeScreen.tsx";
+import { ReviewScreen } from "./screens/ReviewScreen.tsx";
 import { SettingsScreen } from "./screens/SettingsScreen.tsx";
+
+type Review = { sessionId: string; result: SelectResult };
 
 type Screen = "home" | "settings";
 
@@ -55,6 +60,7 @@ function navButton(active: boolean): CSSProperties {
 export function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [theme, setTheme] = useState<Theme>("light");
+  const [review, setReview] = useState<Review | null>(null);
 
   useEffect(() => {
     applyTheme("light");
@@ -88,10 +94,17 @@ export function App() {
         </nav>
       </header>
       <main style={main}>
-        {screen === "home" ? (
-          <p>Selecciona las mejores tomas de tus ráfagas, sin salir de tu equipo.</p>
-        ) : (
+        {screen === "settings" ? (
           <SettingsScreen theme={theme} onThemeChange={setTheme} />
+        ) : review ? (
+          <ReviewScreen
+            key={review.sessionId}
+            sessionId={review.sessionId}
+            initial={review.result}
+            onReset={() => setReview(null)}
+          />
+        ) : (
+          <HomeScreen onResult={(sessionId, result) => setReview({ sessionId, result })} />
         )}
       </main>
     </div>
