@@ -3,6 +3,7 @@ import { Button } from "../../components/Button.tsx";
 import { Panel } from "../../components/Panel.tsx";
 import { Skeleton } from "../../components/Skeleton.tsx";
 import { fileName } from "../../lib/engine.ts";
+import { useLivePreview } from "../../lib/livePreview.ts";
 import { usePreview } from "../../lib/previews.ts";
 import { ScoresPanel } from "../review/ScoresPanel.tsx";
 import { FAIL_TEXT, type GridItem } from "./items.ts";
@@ -18,7 +19,9 @@ type Props = {
 /** The sidebar's small viewer: the focused photo, its scores and the actions on it. */
 export function MiniViewer({ item, onOpen, onPick, onOpenInBurst }: Props) {
   const photo = item?.photo;
-  const { image } = usePreview(photo?.id, "view", 0);
+  const saved = usePreview(photo?.id, "view", 0).image;
+  const live = useLivePreview(photo?.id);
+  const image = live ?? saved;
   if (!item || !photo) {
     return (
       <Panel title="Foto" icon="eye">

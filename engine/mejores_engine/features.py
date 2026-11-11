@@ -7,6 +7,8 @@ read instead, which is two orders of magnitude cheaper and plenty for ranking sh
 from __future__ import annotations
 
 import base64
+import threading
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
@@ -171,6 +173,41 @@ class PreviewImage:
     source_height: int
 
 
+# Dragging a slider asks for the same photo again and again: keep the last few decoded and scaled.
+_SCALED: OrderedDict[tuple[object, ...], tuple[NDArray[np.uint8], int, int]] = OrderedDict()
+_SCALED_KEEP = 4
+_scaled_lock = threading.Lock()
+
+
+def _scaled(path: Path, fmt: str, max_px: int, develop: bool) -> tuple[NDArray[np.uint8], int, int]:
+    """The photo decoded and shrunk to `max_px`, with the size it had. Shared: do not modify it."""
+    try:
+        info = path.stat()
+        key: tuple[object, ...] | None = (
+            str(path), info.st_size, info.st_mtime_ns, fmt, max_px, develop,
+        )  # fmt: skip
+    except OSError:
+        key = None
+    if key is not None:
+        with _scaled_lock:
+            hit = _SCALED.get(key)
+            if hit is not None:
+                _SCALED.move_to_end(key)
+                return hit
+    bgr = decode(image_bytes(path, fmt, develop), path)
+    h, w = bgr.shape[:2]
+    if max(h, w) > max_px:
+        scale = max_px / max(h, w)
+        size = (max(1, round(w * scale)), max(1, round(h * scale)))
+        bgr = np.asarray(cv2.resize(bgr, size, interpolation=cv2.INTER_AREA), dtype=np.uint8)
+    if key is not None:
+        with _scaled_lock:
+            _SCALED[key] = (bgr, int(w), int(h))
+            while len(_SCALED) > _SCALED_KEEP:
+                _SCALED.popitem(last=False)
+    return bgr, int(w), int(h)
+
+
 def preview_image(
     path: Path,
     fmt: str,
@@ -183,12 +220,7 @@ def preview_image(
 
     `develop` asks a RAW for a half-size demosaic instead of the camera's embedded preview.
     """
-    bgr = decode(image_bytes(path, fmt, develop), path)
-    h, w = bgr.shape[:2]
-    if max(h, w) > max_px:
-        scale = max_px / max(h, w)
-        size = (max(1, round(w * scale)), max(1, round(h * scale)))
-        bgr = np.asarray(cv2.resize(bgr, size, interpolation=cv2.INTER_AREA), dtype=np.uint8)
+    bgr, w, h = _scaled(path, fmt, max_px, develop)
     if adjustments is not None:
         bgr = adjust.apply(bgr, adjustments, lut)
     out_h, out_w = bgr.shape[:2]

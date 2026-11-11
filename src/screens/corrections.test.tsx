@@ -2,6 +2,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import * as engine from "../lib/engine.ts";
 import { type Adjustments, NEUTRAL } from "../lib/engine.ts";
+import { livePreview } from "../lib/livePreview.ts";
 import { previews } from "../lib/previews.ts";
 import { RESULT } from "./fixtures.ts";
 import { ReviewScreen } from "./ReviewScreen.tsx";
@@ -30,6 +31,7 @@ const WARM = { id: "l1", name: "Cálido", size: 33 };
 beforeEach(() => {
   vi.clearAllMocks();
   previews.clear();
+  livePreview.clear("IMG_2");
   Object.defineProperty(window, "innerWidth", { value: 1280, configurable: true, writable: true });
   mocked.onEngineEvent.mockResolvedValue(() => undefined);
   mocked.preview.mockResolvedValue({
@@ -101,6 +103,32 @@ describe("the corrections panel", () => {
     expect(mocked.setEdits).not.toHaveBeenCalled(); // still dragging
     await waitFor(() => expect(mocked.setEdits).toHaveBeenCalledTimes(1));
     expect(mocked.setEdits).toHaveBeenCalledWith("s1", ["IMG_2"], SAVED({ exposure: 1.5 }));
+  });
+
+  it("draws the viewer with the slider's values at once, before anything is saved", async () => {
+    openReview();
+    drag(within(panel()).getByRole("slider", { name: "Exposición" }), 1);
+    await waitFor(() =>
+      expect(mocked.preview).toHaveBeenCalledWith("IMG_2", {
+        maxPx: 1000,
+        adjustments: SAVED({ exposure: 1 }),
+      }),
+    );
+    expect(mocked.setEdits).not.toHaveBeenCalled();
+    drag(within(panel()).getByRole("slider", { name: "Exposición" }), 1.4);
+    await waitFor(() =>
+      expect(mocked.preview).toHaveBeenCalledWith("IMG_2", {
+        maxPx: 1000,
+        adjustments: SAVED({ exposure: 1.4 }),
+      }),
+    );
+  });
+
+  it("hands the viewer back to the saved view once the correction is stored", async () => {
+    openReview();
+    drag(within(panel()).getByRole("slider", { name: "Contraste" }), 0.3);
+    await waitFor(() => expect(mocked.setEdits).toHaveBeenCalled());
+    await waitFor(() => expect(livePreview.peek("IMG_2")).toBeUndefined());
   });
 
   it("asks again for the views of a photo whose corrections changed", async () => {

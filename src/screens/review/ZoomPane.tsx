@@ -10,6 +10,7 @@ import {
 import { Skeleton } from "../../components/Skeleton.tsx";
 import { cx } from "../../lib/cx.ts";
 import { fileName, type SelectedPhoto } from "../../lib/engine.ts";
+import { useLivePreview } from "../../lib/livePreview.ts";
 import { type Tier, usePreview } from "../../lib/previews.ts";
 import {
   actualPixelsZoom,
@@ -83,17 +84,20 @@ export function ZoomPane({
 
   // Sizes: the 1600 px view always; more detail only once the zoom needs it, or when asked for.
   const base = usePreview(photo.id, "view", 0);
-  const baseGeom = base.image && { w: base.image.sourceWidth, h: base.image.sourceHeight };
+  // While a slider is being dragged its frame stands in for the saved view (and its detail).
+  const live = useLivePreview(photo.id);
+  const picture = live ?? base.image;
+  const baseGeom = picture && { w: picture.sourceWidth, h: picture.sourceHeight };
   const baseScale = baseGeom ? toTransform(view, pane, baseGeom).scale : 0;
   const needsDetail =
-    !!base.image && !!baseGeom && baseScale * dpr > base.image.width / baseGeom.w + 0.001;
+    !!picture && !!baseGeom && baseScale * dpr > picture.width / baseGeom.w + 0.001;
   const developing = develop && photo.format === "raw";
   const detailTier: Tier = developing ? "develop" : "full";
   const detail = usePreview(developing || needsDetail ? photo.id : undefined, detailTier, 0);
-  const sharp = detail.image;
-  const geom = (sharp ?? base.image) && {
-    w: (sharp ?? base.image)?.sourceWidth ?? 1,
-    h: (sharp ?? base.image)?.sourceHeight ?? 1,
+  const sharp = live ? undefined : detail.image;
+  const geom = (sharp ?? picture) && {
+    w: (sharp ?? picture)?.sourceWidth ?? 1,
+    h: (sharp ?? picture)?.sourceHeight ?? 1,
   };
   const t = geom ? toTransform(view, pane, geom) : undefined;
   const limit = geom ? maxZoom(pane, geom, dpr) : 1;
@@ -214,10 +218,10 @@ export function ZoomPane({
         setDragging(false);
       }}
     >
-      {base.image && baseGeom && t ? (
+      {picture && baseGeom && t ? (
         <img
           key={photo.id}
-          src={base.image.url}
+          src={picture.url}
           alt={`Foto ${name}`}
           draggable={false}
           className={styles.image}

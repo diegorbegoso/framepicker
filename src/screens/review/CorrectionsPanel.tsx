@@ -3,6 +3,8 @@ import { Button } from "../../components/Button.tsx";
 import { Panel } from "../../components/Panel.tsx";
 import type { Adjustments, LutInfo, SelectedBurst, SelectedPhoto } from "../../lib/engine.ts";
 import { isNeutral } from "../../lib/engine.ts";
+import { livePreview } from "../../lib/livePreview.ts";
+import { previews } from "../../lib/previews.ts";
 import styles from "./CorrectionsPanel.module.css";
 import { buildScopes, SCOPE_ORDER, type Scope, scopeText } from "./scopes.ts";
 import type { Edits } from "./useEdits.ts";
@@ -58,10 +60,15 @@ export function CorrectionsPanel({ photo, bursts, marked, edits, luts, onExport 
     if (!waiting) return;
     window.clearTimeout(waiting.timer);
     pending.current = null;
-    // Once saved (or put back, if saving failed) the stored value is the truth again.
+    // Once saved (or put back, if saving failed) the stored value is the truth again, and the
+    // live frame goes away as soon as the saved view has loaded behind it, so nothing flickers.
     void save
       .current([waiting.id], waiting.value)
-      .then(() => setDraft((now) => (now?.value === waiting.value ? null : now)));
+      .then(() => previews.request(waiting.id, "view", 0).catch(() => undefined))
+      .then(() => {
+        setDraft((now) => (now?.value === waiting.value ? null : now));
+        if (pending.current?.id !== waiting.id) livePreview.clear(waiting.id);
+      });
   }, []);
 
   // A pending change is saved before another photo's change replaces it, and when leaving.
@@ -71,6 +78,7 @@ export function CorrectionsPanel({ photo, bursts, marked, edits, luts, onExport 
     if (!photoId) return;
     const value = { ...current, ...patch };
     setDraft({ id: photoId, value });
+    livePreview.update(photoId, value); // the viewer follows the slider while it moves
     if (pending.current && pending.current.id !== photoId) flush();
     if (pending.current) window.clearTimeout(pending.current.timer);
     const timer = window.setTimeout(flush, SAVE_DELAY_MS);
@@ -81,6 +89,7 @@ export function CorrectionsPanel({ photo, bursts, marked, edits, luts, onExport 
     flush();
     await edits.apply(scopes[scope], current);
     setDraft(null);
+    for (const id of scopes[scope]) livePreview.clear(id);
   }
 
   async function restore(ids: string[]) {
@@ -90,6 +99,7 @@ export function CorrectionsPanel({ photo, bursts, marked, edits, luts, onExport 
     }
     await edits.reset(ids);
     setDraft(null);
+    for (const id of ids) livePreview.clear(id);
   }
 
   const known = luts.some((lut) => lut.id === current.lut_id);

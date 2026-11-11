@@ -194,14 +194,22 @@ export function setPick(burstId: string, photoId: string, selected: boolean) {
 /** `develop` asks a RAW for a half-size demosaic instead of the camera's embedded preview. */
 export async function preview(
   photoId: string,
-  options: { maxPx?: number; develop?: boolean; edited?: boolean } = {},
+  options: {
+    maxPx?: number;
+    develop?: boolean;
+    /** Show the corrections saved for the photo. */
+    edited?: boolean;
+    /** Show these corrections instead, without saving them (a slider being dragged). */
+    adjustments?: Adjustments;
+  } = {},
 ): Promise<PreviewImage> {
-  const { maxPx = 960, develop = false, edited = false } = options;
+  const { maxPx = 960, develop = false, edited = false, adjustments } = options;
   const params = {
     photo_id: photoId,
     max_px: maxPx,
     develop,
     ...(edited ? { edited: true } : {}),
+    ...(adjustments ? { adjustments } : {}),
   };
   const reply = await engineRequest("preview", params, PreviewResult);
   return {

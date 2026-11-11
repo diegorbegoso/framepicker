@@ -19,6 +19,7 @@ from mejores_engine import (
     grouping,
     luts_library,
     organize,
+    preview_api,
     scoring,
     sessions,
     settings,
@@ -97,6 +98,7 @@ def build_dispatcher(
 
     export_api.register(dispatcher, store, roots, exports, library)
     organize.register(dispatcher, store, roots)
+    preview_api.register(dispatcher, store, library)
     edits.register(dispatcher, store)
     sessions.register(dispatcher, store)
 
@@ -186,42 +188,6 @@ def build_dispatcher(
                 )
                 photos.append(photo)
         return {"session_id": session_id, "photos": photos, "skipped": skipped, "resumed": False}
-
-    @dispatcher.register("preview")
-    def preview(params: dict[str, Any]) -> dict[str, Any]:
-        photo_id = params.get("photo_id")
-        if not isinstance(photo_id, str):
-            raise RpcError(INVALID_PARAMS, "photo_id must be a string")
-        max_px = params.get("max_px", 960)
-        if isinstance(max_px, bool) or not isinstance(max_px, int) or not 16 <= max_px <= 8192:
-            raise RpcError(INVALID_PARAMS, "max_px must be an integer from 16 to 8192")
-        develop = params.get("develop", False)
-        if not isinstance(develop, bool):
-            raise RpcError(INVALID_PARAMS, "develop must be true or false")
-        edited = params.get("edited", False)
-        if not isinstance(edited, bool):
-            raise RpcError(INVALID_PARAMS, "edited must be true or false")
-        with store().session() as conn:
-            row = conn.execute(
-                "SELECT path, format FROM photos WHERE id = ?", (photo_id,)
-            ).fetchone()
-        if row is None:
-            raise RpcError(NOT_FOUND, f"photo not found: {photo_id}")
-        adjustments = None
-        if edited:
-            with store().session() as conn:
-                adjustments = edits.load_many(conn, [photo_id]).get(photo_id)
-        lut = library.find(adjustments.lut_id) if adjustments and adjustments.lut_id else None
-        image = features.preview_image(
-            Path(row["path"]), str(row["format"]), max_px, develop, adjustments, lut
-        )
-        return {
-            "data_url": image.data_url,
-            "width": image.width,
-            "height": image.height,
-            "source_width": image.source_width,
-            "source_height": image.source_height,
-        }
 
     @dispatcher.register("bursts")
     def bursts(params: dict[str, Any]) -> dict[str, Any]:
