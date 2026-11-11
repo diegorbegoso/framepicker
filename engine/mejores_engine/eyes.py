@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,8 @@ MODEL_PATH = Path(__file__).resolve().parent / "assets" / "face_landmarker.task"
 MAX_FACES = 6
 
 _landmarker: Any = None
+# The analysis runs on several threads; one FaceLandmarker is shared and used one call at a time.
+_lock = threading.Lock()
 
 
 def _clamp(value: float, low: float, high: float) -> float:
@@ -54,7 +57,8 @@ def score(bgr: NDArray[np.uint8]) -> float | None:
     import mediapipe as mp
 
     rgb = np.ascontiguousarray(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
-    result = _get_landmarker().detect(mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb))
+    with _lock:
+        result = _get_landmarker().detect(mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb))
     faces = [
         {str(category.category_name): float(category.score) for category in shapes}
         for shapes in (result.face_blendshapes or [])

@@ -161,3 +161,14 @@ def test_a_ping_after_the_landmarker_writes_exactly_one_stdout_line(tmp_path: Pa
     lines = [line for line in result.stdout.splitlines() if line.strip()]
     assert len(lines) == 1, result.stdout
     assert '"pong":true' in lines[0]
+
+
+def test_concurrent_detections_share_one_landmarker_safely(monkeypatch: pytest.MonkeyPatch) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    monkeypatch.setattr(eyes, "_landmarker", None)
+    grey = np.full((256, 256, 3), 128, dtype=np.uint8)
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        results = list(pool.map(lambda _: eyes.score(grey), range(18)))
+    assert results == [None] * 18
+    assert eyes.is_loaded()

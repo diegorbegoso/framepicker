@@ -1,8 +1,13 @@
-"""Background analysis jobs: a process pool extracts features, one thread writes them.
+"""Background analysis jobs: a thread pool extracts features, one thread writes them.
 
 The serve loop answers one request at a time, so a job runs on its own thread and reports through
 the shared Emitter. Pool workers only compute; the job thread is the only one touching SQLite, and
 it does so through its own connection.
+
+The workers are threads, not processes. The work is OpenCV, NumPy and libraw, which release the GIL
+(6 threads measured at 8x one thread), and a process pool has to start six more copies of the
+300 MB frozen engine for every analysis. In the packaged Windows app those copies stalled at start,
+so the installed analysis sat at 0 of N photos.
 """
 
 from __future__ import annotations
@@ -15,7 +20,7 @@ import threading
 import time
 import uuid
 from collections.abc import Callable
-from concurrent.futures import FIRST_COMPLETED, Executor, Future, ProcessPoolExecutor, wait
+from concurrent.futures import FIRST_COMPLETED, Executor, Future, ThreadPoolExecutor, wait
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -38,7 +43,7 @@ CANCEL_WAIT_S = 0.9
 
 
 def default_executor() -> Executor:
-    return ProcessPoolExecutor(max_workers=min(os.cpu_count() or 1, 6))
+    return ThreadPoolExecutor(max_workers=min(os.cpu_count() or 1, 6), thread_name_prefix="analyze")
 
 
 @dataclass(frozen=True)

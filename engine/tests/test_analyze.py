@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import multiprocessing
 import pickle
 import threading
 import time
@@ -12,6 +13,7 @@ from typing import Any
 import cv2
 import numpy as np
 
+from mejores_engine import analyze as analyze_module
 from mejores_engine import features
 from mejores_engine.app import build_dispatcher
 from mejores_engine.features import Features
@@ -219,3 +221,29 @@ def test_rpc_errors_survive_pickling_across_processes() -> None:
         "cannot decode x",
         {"a": 1},
     )
+
+
+def test_the_default_executor_is_a_thread_pool() -> None:
+    executor = analyze_module.default_executor()
+    try:
+        assert isinstance(executor, ThreadPoolExecutor)
+    finally:
+        executor.shutdown()
+
+
+def test_the_default_analysis_runs_without_starting_child_processes(tmp_path: Path) -> None:
+    paths = []
+    rng = np.random.default_rng(5)
+    for index in range(4):
+        path = tmp_path / f"default_{index}.jpg"
+        assert cv2.imwrite(str(path), rng.integers(0, 256, size=(90, 120, 3), dtype=np.uint8))
+        paths.append(str(path))
+    data = tmp_path / "data"
+    make_session(data, paths)
+    # No executor_factory: this is exactly what the packaged app runs.
+    dispatcher = build_dispatcher(lambda: Store(data), emitter=ListEmitter())
+    job_id = call(dispatcher, "analyze", {"session_id": "s", "eyes": True})["result"]["job_id"]
+    status = wait_until_finished(dispatcher, job_id, timeout=120.0)
+    assert (status["state"], status["computed"], status["failed"]) == ("done", 4, 0)
+    assert all(isinstance(value, str) and len(value) == 16 for value in stored_hashes(data))
+    assert multiprocessing.active_children() == []
