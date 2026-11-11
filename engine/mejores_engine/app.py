@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from mejores_engine import __version__, features, settings
+from mejores_engine import __version__, features, grouping, settings
 from mejores_engine.analyze import ExecutorFactory, Extractor, Jobs
 from mejores_engine.rpc import (
     INVALID_PARAMS,
@@ -165,6 +165,19 @@ def build_dispatcher(
             raise RpcError(NOT_FOUND, f"photo not found: {photo_id}")
         url = features.preview_data_url(Path(row["path"]), str(row["format"]), max_px)
         return {"data_url": url}
+
+    @dispatcher.register("bursts")
+    def bursts(params: dict[str, Any]) -> dict[str, Any]:
+        session_id = _string_param(params, "session_id")
+        with store().session() as conn:
+            exists = conn.execute("SELECT 1 FROM sessions WHERE id = ?", (session_id,)).fetchone()
+            if exists is None:
+                raise RpcError(NOT_FOUND, f"session not found: {session_id}")
+            current = settings.get_all(conn)
+            built = grouping.rebuild(
+                conn, session_id, float(current["time_gap_s"]), int(current["hamming_max"])
+            )
+        return {"bursts": built}
 
     return dispatcher
 
