@@ -1,6 +1,6 @@
 /* Design tokens. The only file in the project allowed to contain colour literals.
    Light is the default theme. Dark is selected by data-theme="dark" on <html>.
-   The photo stage (--stage-*) is dark in both themes: neutral surroundings for judging colour. */
+   The photo stage (--stage-*) follows the theme: a light neutral grey in light, near black in dark. */
 
 :root {
   color-scheme: light;
@@ -27,16 +27,16 @@
   --success: #17703a;
   --success-soft: #e3f4e8;
 
-  /* Photo stage: the same in both themes */
-  --stage: #0d0f12;
-  --stage-raised: #171a1f;
-  --stage-fg: #eceef2;
-  --stage-fg-muted: #a3acba;
-  --stage-border: #2b313a;
-  --stage-hud: rgb(13 15 18 / 72%);
-  --stage-accent: #7da2ff;
-  --stage-success: #7ddc8f;
-  --stage-focus: #9bb7ff;
+  /* Photo stage: the surroundings of the photo */
+  --stage: #e9edf3;
+  --stage-raised: #f6f8fb;
+  --stage-fg: #0f172a;
+  --stage-fg-muted: #4b5565;
+  --stage-border: #d4dae4;
+  --stage-hud: rgb(255 255 255 / 82%);
+  --stage-accent: #2757f5;
+  --stage-success: #17703a;
+  --stage-focus: #2757f5;
 
   /* Elevation */
   --shadow-1: 0 1px 2px rgb(15 23 42 / 6%), 0 1px 1px rgb(15 23 42 / 4%);
@@ -103,6 +103,16 @@
   --success: #7ddc8f;
   --success-soft: #16301f;
 
+  --stage: #0d0f12;
+  --stage-raised: #171a1f;
+  --stage-fg: #eceef2;
+  --stage-fg-muted: #a3acba;
+  --stage-border: #2b313a;
+  --stage-hud: rgb(13 15 18 / 72%);
+  --stage-accent: #7da2ff;
+  --stage-success: #7ddc8f;
+  --stage-focus: #9bb7ff;
+
   --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
   --shadow-2: 0 4px 12px rgb(0 0 0 / 40%), 0 1px 3px rgb(0 0 0 / 30%);
   --shadow-3: 0 12px 32px rgb(0 0 0 / 55%), 0 2px 6px rgb(0 0 0 / 35%);
@@ -132,6 +142,7 @@ body,
 html,
 body {
   margin: 0;
+  overflow: hidden;
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-ui);

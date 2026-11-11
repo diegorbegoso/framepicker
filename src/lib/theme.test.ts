@@ -24,7 +24,7 @@ const COLOR_TOKENS = [
   "--success-soft",
 ];
 
-// Defined once in :root: the photo stage looks the same in both themes.
+// The photo stage follows the theme: light grey in light, near black in dark.
 const STAGE_TOKENS = [
   "--stage",
   "--stage-raised",
@@ -119,13 +119,15 @@ describe("tokens.css", () => {
     }
   });
 
-  it("keeps the photo stage identical in both themes", () => {
+  it("defines the photo stage in both themes, lighter in light than in dark", () => {
     for (const name of STAGE_TOKENS) {
       expect(themes.light[name], `light ${name}`).toMatch(/^#[0-9a-f]{6}$/i);
-      expect(themes.dark[name], `${name} must not be overridden by the dark theme`).toBeUndefined();
+      expect(themes.dark[name], `dark ${name}`).toMatch(/^#[0-9a-f]{6}$/i);
     }
     expect(themes.light["--stage-hud"]).toMatch(/^rgb\(/);
-    expect(themes.dark["--stage-hud"]).toBeUndefined();
+    expect(themes.dark["--stage-hud"]).toMatch(/^rgb\(/);
+    expect(luminance(themes.light["--stage"] ?? "")).toBeGreaterThan(0.6);
+    expect(luminance(themes.dark["--stage"] ?? "")).toBeLessThan(0.05);
   });
 
   it("collapses every motion duration under prefers-reduced-motion", () => {

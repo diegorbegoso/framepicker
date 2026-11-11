@@ -41,8 +41,9 @@ type Props = {
 
 const STEP = 1.4;
 const PAN_STEP = 80;
+const CLICK_SLOP = 4;
 
-/** One photo you can zoom with the wheel, drag, and double-click to jump to 100 %. */
+/** One photo you can zoom with the wheel, pan by dragging, and click to jump to 100 % and back. */
 export function ZoomPane({
   photo,
   view,
@@ -54,7 +55,14 @@ export function ZoomPane({
   onPercent,
 }: Props) {
   const box = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ x: number; y: number } | null>(null);
+  // `moved` tells a click (zoom) from a drag (pan): a press that stays within a few pixels is a click.
+  const drag = useRef<{
+    x: number;
+    y: number;
+    startX: number;
+    startY: number;
+    moved: boolean;
+  } | null>(null);
   const [pane, setPane] = useState<Size>({ w: 800, h: 600 });
   const [dragging, setDragging] = useState(false);
   const dpr = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
@@ -153,7 +161,6 @@ export function ZoomPane({
 
   const name = fileName(photo.path);
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: wheel, drag and double-click are shortcuts; the toolbar buttons and the Z, +, - and 0 keys do the same.
     <div
       ref={box}
       className={cx(styles.pane, view.zoom > 1.01 && styles.zoomed, dragging && styles.dragging)}
@@ -166,32 +173,45 @@ export function ZoomPane({
       onPointerDown={(event) => {
         if (event.button !== 0 || !geom) return;
         event.currentTarget.setPointerCapture?.(event.pointerId);
-        drag.current = { x: event.clientX, y: event.clientY };
-        setDragging(true);
+        drag.current = {
+          x: event.clientX,
+          y: event.clientY,
+          startX: event.clientX,
+          startY: event.clientY,
+          moved: false,
+        };
       }}
       onPointerMove={(event) => {
-        if (!drag.current || !geom) return;
-        const dx = event.clientX - drag.current.x;
-        const dy = event.clientY - drag.current.y;
-        drag.current = { x: event.clientX, y: event.clientY };
+        const press = drag.current;
+        if (!press || !geom) return;
+        if (!press.moved) {
+          const far = Math.hypot(event.clientX - press.startX, event.clientY - press.startY);
+          if (far <= CLICK_SLOP) return;
+          press.moved = true;
+          setDragging(true);
+        }
+        const dx = event.clientX - press.x;
+        const dy = event.clientY - press.y;
+        press.x = event.clientX;
+        press.y = event.clientY;
         onView(panView(view, pane, geom, dx, dy));
       }}
-      onPointerUp={() => {
+      onPointerUp={(event) => {
+        const press = drag.current;
         drag.current = null;
         setDragging(false);
-      }}
-      onPointerCancel={() => {
-        drag.current = null;
-        setDragging(false);
-      }}
-      onDoubleClick={(event) => {
-        if (!geom) return;
+        // A click without dragging zooms in on that spot, or back out when already zoomed.
+        if (!press || press.moved || !geom || event.button !== 0) return;
         const point = at(event.clientX, event.clientY);
         onView(
           view.zoom > 1.01
             ? FIT_VIEW
             : zoomTo(view, pane, geom, actualPixelsZoom(pane, geom, dpr), point, limit),
         );
+      }}
+      onPointerCancel={() => {
+        drag.current = null;
+        setDragging(false);
       }}
     >
       {base.image && baseGeom && t ? (

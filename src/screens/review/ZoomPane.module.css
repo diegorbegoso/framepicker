@@ -10,7 +10,7 @@
 }
 
 .zoomed {
-  cursor: grab;
+  cursor: zoom-out;
 }
 
 .dragging {

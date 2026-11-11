@@ -1,74 +1,10 @@
 .shell {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
   background: var(--bg);
   color: var(--fg);
-}
-
-.header {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  height: 52px;
-  padding: 0 var(--space-5);
-  border-bottom: 1px solid var(--divider);
-  background: var(--surface);
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.mark {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-control);
-  background: var(--primary);
-  color: var(--primary-fg);
-  box-shadow: var(--shadow-1);
-}
-
-.title {
-  font-size: var(--text-md);
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  line-height: var(--leading-tight);
-}
-
-.nav {
-  display: flex;
-  gap: var(--space-1);
-}
-
-.navButton {
-  height: 32px;
-  padding: 0 var(--space-4);
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--fg-muted);
-  font-weight: 550;
-  cursor: pointer;
-  transition:
-    background-color var(--dur-fast) var(--ease),
-    color var(--dur-fast) var(--ease);
-}
-
-.navButton:hover {
-  background: var(--surface-2);
-  color: var(--fg);
-}
-
-.navButton[aria-current="page"] {
-  background: var(--primary-soft);
-  color: var(--primary);
 }
 
 .main {
@@ -86,8 +22,4 @@
   max-width: var(--content-max);
   margin: 0 auto;
   padding: var(--space-5);
-}
-
-.reviewHost {
-  height: 100%;
 }

@@ -1,9 +1,12 @@
 import { useCallback, useState } from "react";
+import { Icon } from "../components/Icon.tsx";
 import { SegmentedControl } from "../components/SegmentedControl.tsx";
+import { ThemeSwitch } from "../components/ThemeSwitch.tsx";
 import { cx } from "../lib/cx.ts";
 import type { SelectedBurst, SelectedPhoto, SelectResult } from "../lib/engine.ts";
 import * as engine from "../lib/engine.ts";
 import { firstPickedIndex } from "../lib/focus.ts";
+import type { Theme } from "../lib/theme.ts";
 import { ActionsBar } from "./ActionsBar.tsx";
 import { GridScreen } from "./grid/GridScreen.tsx";
 import styles from "./ReviewScreen.module.css";
@@ -19,6 +22,8 @@ type Props = {
   initial: SelectResult;
   /** False while another screen is on top: the keyboard and full screen are then left alone. */
   active?: boolean;
+  theme: Theme;
+  onThemeChange: (theme: Theme) => void;
   immersive: boolean;
   onImmersiveChange: (on: boolean) => void;
   onReset: () => void;
@@ -28,6 +33,8 @@ export function ReviewScreen({
   sessionId,
   initial,
   active = true,
+  theme,
+  onThemeChange,
   immersive,
   onImmersiveChange,
   onReset,
@@ -156,6 +163,9 @@ export function ReviewScreen({
       <h2 className={styles.srOnly}>Revisa tus ráfagas</h2>
       {immersive ? null : (
         <div className={styles.tabs}>
+          <span className={styles.mark} role="img" aria-label="Mejores Tomas">
+            <Icon name="camera" size={16} />
+          </span>
           <SegmentedControl
             label="Vista"
             value={mode}
@@ -167,6 +177,7 @@ export function ReviewScreen({
           />
           <span className={styles.total}>{selectedCount} elegidas</span>
           <ActionsBar sessionId={sessionId} selectedCount={selectedCount} onBusy={setBusy} />
+          <ThemeSwitch theme={theme} onThemeChange={onThemeChange} />
         </div>
       )}
       <div

@@ -49,6 +49,8 @@ async function openGrid() {
     <ReviewScreen
       sessionId="s1"
       initial={RESULT}
+      theme="light"
+      onThemeChange={vi.fn()}
       immersive={false}
       onImmersiveChange={vi.fn()}
       onReset={vi.fn()}

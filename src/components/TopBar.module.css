@@ -1,0 +1,21 @@
+.root {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--divider);
+  background: var(--surface);
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-control);
+  background: var(--primary);
+  color: var(--primary-fg);
+  box-shadow: var(--shadow-1);
+}

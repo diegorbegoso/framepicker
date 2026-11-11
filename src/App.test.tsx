@@ -30,10 +30,15 @@ describe("App", () => {
     delete document.documentElement.dataset.theme;
   });
 
-  it("shows the product name as the page heading", () => {
+  it("has a single top bar with the app mark and the theme switch, and no menu", () => {
     engineWithTheme("light");
     render(<App />);
-    expect(screen.getByRole("heading", { level: 1, name: "Mejores Tomas" })).toBeInTheDocument();
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Mejores Tomas" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Modo oscuro" })).not.toBeChecked();
+    expect(screen.queryByRole("button", { name: "Ajustes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Inicio" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Principal" })).not.toBeInTheDocument();
   });
 
   it("applies the stored light theme", async () => {
@@ -55,35 +60,37 @@ describe("App", () => {
     engineWithTheme("light");
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole("button", { name: "Ajustes" }));
-    expect(screen.getByRole("button", { name: "Ajustes" })).toHaveAttribute("aria-current", "page");
-    await user.click(screen.getByRole("radio", { name: "Oscuro" }));
+    await user.click(screen.getByRole("switch", { name: "Modo oscuro" }));
     expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(screen.getByRole("switch", { name: "Modo oscuro" })).toBeChecked();
     await waitFor(() => expect(settingsSetCalls()).toHaveLength(1));
     expect(settingsSetCalls()[0]?.[1]).toEqual({ key: "theme", value: "dark" });
   });
 
+  it("goes back to light with a second click", async () => {
+    engineWithTheme("dark");
+    const user = userEvent.setup();
+    render(<App />);
+    await waitFor(() => expect(screen.getByRole("switch", { name: "Modo oscuro" })).toBeChecked());
+    await user.click(screen.getByRole("switch", { name: "Modo oscuro" }));
+    expect(document.documentElement.dataset.theme).toBe("light");
+  });
+
   it("falls back to light when the engine cannot answer", async () => {
     request.mockRejectedValue(new Error("engine down"));
-    const user = userEvent.setup();
     render(<App />);
     await waitFor(() => expect(request).toHaveBeenCalled());
     expect(document.documentElement.dataset.theme).toBe("light");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Ajustes" }));
-    expect(screen.getByRole("radio", { name: "Claro" })).toBeChecked();
+    expect(screen.getByRole("switch", { name: "Modo oscuro" })).not.toBeChecked();
   });
 
-  it("lets the keyboard pick the dark theme in the Tema group", async () => {
+  it("lets the keyboard flip the theme", async () => {
     engineWithTheme("light");
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole("button", { name: "Ajustes" }));
-    expect(screen.getByRole("group", { name: "Tema" })).toBeInTheDocument();
-    const dark = screen.getByRole("radio", { name: "Oscuro" });
-    dark.focus();
+    screen.getByRole("switch", { name: "Modo oscuro" }).focus();
     await user.keyboard(" ");
-    expect(dark).toBeChecked();
     expect(document.documentElement.dataset.theme).toBe("dark");
   });
 });

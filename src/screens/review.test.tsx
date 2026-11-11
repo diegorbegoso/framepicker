@@ -60,6 +60,8 @@ function renderReview(overrides: Partial<Parameters<typeof ReviewScreen>[0]> = {
   const props = {
     sessionId: "s1",
     initial: RESULT,
+    theme: "light" as const,
+    onThemeChange: vi.fn(),
     immersive: false,
     onImmersiveChange: vi.fn(),
     onReset: vi.fn(),
@@ -276,6 +278,32 @@ describe("zoom and compare", () => {
     expect(
       screen.getByRole("button", { name: "Alternar entre ajustar y 100 %" }),
     ).not.toHaveTextContent(/^\d{1,2} %$/);
+  });
+
+  it("zooms in with a single click on the photo, and back out with another", async () => {
+    const user = userEvent.setup();
+    renderReview();
+    const photo = await screen.findByAltText("Foto IMG_2.jpg");
+    await user.click(photo);
+    await waitFor(() =>
+      expect(mocked.preview).toHaveBeenCalledWith("IMG_2", { maxPx: 8192, develop: false }),
+    );
+    const zoom = screen.getByRole("button", { name: "Alternar entre ajustar y 100 %" });
+    await waitFor(() => expect(zoom).not.toHaveTextContent(/^\d{1,2} %$/));
+    await user.click(screen.getByAltText("Foto IMG_2.jpg"));
+    await waitFor(() => expect(zoom).toHaveTextContent(/^\d{1,2} %$/));
+  });
+
+  it("does not zoom when the press turns into a drag", async () => {
+    const user = userEvent.setup();
+    renderReview();
+    const photo = await screen.findByAltText("Foto IMG_2.jpg");
+    await user.pointer([
+      { keys: "[MouseLeft>]", target: photo, coords: { clientX: 10, clientY: 10 } },
+      { coords: { clientX: 60, clientY: 40 } },
+      { keys: "[/MouseLeft]" },
+    ]);
+    expect(mocked.preview).not.toHaveBeenCalledWith("IMG_2", { maxPx: 8192, develop: false });
   });
 
   it("offers the high-resolution view only for RAW photos", async () => {

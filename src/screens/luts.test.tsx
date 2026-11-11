@@ -48,6 +48,8 @@ async function openLuts() {
     <ReviewScreen
       sessionId="s1"
       initial={RESULT}
+      theme="light"
+      onThemeChange={vi.fn()}
       immersive={false}
       onImmersiveChange={vi.fn()}
       onReset={vi.fn()}

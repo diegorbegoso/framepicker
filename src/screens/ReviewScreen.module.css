@@ -15,6 +15,16 @@
   background: var(--surface);
 }
 
+.mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-control);
+  background: var(--primary);
+  color: var(--primary-fg);
+}
+
 .total {
   margin-left: auto;
   color: var(--fg-muted);
