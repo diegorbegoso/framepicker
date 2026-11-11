@@ -1,6 +1,7 @@
-"""Export: copy the chosen photos (and their .xmp sidecars) to a destination folder.
+"""Export: copy the chosen photos (and their .xmp sidecars) to a destination folder, or save them
+again in another format, size and colour (see `export_image.py`).
 
-Originals are only ever opened for reading. Every copy goes to `<target>.part` first and is renamed
+Originals are only ever opened for reading. Every file goes to `<target>.part` first and is renamed
 into place, and the plan picks names that are free, so nothing that already exists is overwritten.
 """
 
@@ -16,12 +17,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from mejores_engine import export_image
+from mejores_engine import edits, export_image
+from mejores_engine.adjust import Adjustments
 from mejores_engine.luts import Lut
 from mejores_engine.rpc import NOT_FOUND, Emitter, RpcError
 from mejores_engine.store import Store
 
 CANCEL_WAIT_S = 0.9
+
+LutResolver = Callable[[str], Lut | None]
 
 
 def canonical(path: Path) -> Path:
@@ -44,13 +48,13 @@ def sidecar_of(photo: Path) -> Path | None:
     return None
 
 
-def plan(photos: list[Path], dest: Path) -> list[tuple[Path, Path]]:
+def plan(photos: list[Path], dest: Path, taken: set[str] | None = None) -> list[tuple[Path, Path]]:
     """(source, target) pairs. A taken name gets `_1`, `_2`… before the extension."""
-    taken: set[str] = set()
+    used = taken if taken is not None else set()
     pairs: list[tuple[Path, Path]] = []
 
     def free(name: str) -> bool:
-        return name.lower() not in taken and not (dest / name).exists()
+        return name.lower() not in used and not (dest / name).exists()
 
     for photo in photos:
         sidecar = sidecar_of(photo)
@@ -62,23 +66,35 @@ def plan(photos: list[Path], dest: Path) -> list[tuple[Path, Path]]:
             if free(name) and (side_name is None or free(side_name)):
                 break
             counter += 1
-        taken.add(name.lower())
+        used.add(name.lower())
         pairs.append((photo, dest / name))
         if sidecar is not None and side_name is not None:
-            taken.add(side_name.lower())
+            used.add(side_name.lower())
             pairs.append((sidecar, dest / side_name))
     return pairs
 
 
-def selected_paths(conn: sqlite3.Connection, session_id: str) -> list[Path]:
+def session_photos(
+    conn: sqlite3.Connection, session_id: str, photo_ids: list[str] | None
+) -> list[tuple[str, Path]]:
+    """(id, path) of the chosen photos, or of exactly `photo_ids`, in the session's order."""
+    if photo_ids is None:
+        rows = conn.execute(
+            "SELECT p.id, p.path FROM selections s JOIN bursts b ON b.id = s.burst_id "
+            "JOIN burst_members m ON m.burst_id = s.burst_id AND m.photo_id = s.photo_id "
+            "JOIN photos p ON p.id = s.photo_id "
+            "WHERE b.session_id = ? AND s.selected = 1 ORDER BY b.position, m.position",
+            (session_id,),
+        ).fetchall()
+        return [(str(row["id"]), Path(str(row["path"]))) for row in rows]
+    wanted = set(photo_ids)
     rows = conn.execute(
-        "SELECT p.path FROM selections s JOIN bursts b ON b.id = s.burst_id "
-        "JOIN burst_members m ON m.burst_id = s.burst_id AND m.photo_id = s.photo_id "
-        "JOIN photos p ON p.id = s.photo_id "
-        "WHERE b.session_id = ? AND s.selected = 1 ORDER BY b.position, m.position",
+        "SELECT p.id, p.path FROM photos p LEFT JOIN burst_members m ON m.photo_id = p.id "
+        "LEFT JOIN bursts b ON b.id = m.burst_id WHERE p.session_id = ? "
+        "ORDER BY COALESCE(b.position, 1000000000), COALESCE(m.position, 0), p.path",
         (session_id,),
     ).fetchall()
-    return [Path(str(row["path"])) for row in rows]
+    return [(str(r["id"]), Path(str(r["path"]))) for r in rows if str(r["id"]) in wanted]
 
 
 def source_folders(conn: sqlite3.Connection, session_id: str) -> set[Path]:
@@ -87,11 +103,19 @@ def source_folders(conn: sqlite3.Connection, session_id: str) -> set[Path]:
 
 
 @dataclass
+class Render:
+    """How one file is made when it is not a plain copy."""
+
+    options: export_image.ExportOptions
+    adjustments: Adjustments | None
+    lut: Lut | None
+
+
+@dataclass
 class ExportJob:
     id: str
     pairs: list[tuple[Path, Path]]
-    options: export_image.ExportOptions | None = None
-    lut: Lut | None = None
+    renders: dict[int, Render] = field(default_factory=dict)  # by position in `pairs`
     kind: str = "export"
     state: str = "running"
     done: int = 0
@@ -124,6 +148,44 @@ def copy_one(source: Path, target: Path) -> None:
         part.unlink(missing_ok=True)
 
 
+def build_job(
+    conn: sqlite3.Connection,
+    session_id: str,
+    dest: Path,
+    options: export_image.ExportOptions | None,
+    photo_ids: list[str] | None,
+    resolve_lut: LutResolver,
+) -> ExportJob:
+    """Decide, photo by photo, whether it is copied as it is or saved again."""
+    photos = session_photos(conn, session_id, photo_ids)
+    carried: dict[str, Adjustments] = {}
+    if options is not None and options.apply_edits:
+        carried = {
+            pid: adj
+            for pid, adj in edits.load_many(conn, [pid for pid, _ in photos]).items()
+            if not adj.is_identity
+        }
+    again: list[tuple[str, Path]] = []
+    plain: list[Path] = []
+    for photo_id, path in photos:
+        if options is not None and (options.re_encodes or photo_id in carried):
+            again.append((photo_id, path))
+        else:
+            plain.append(path)
+    taken: set[str] = set()
+    pairs: list[tuple[Path, Path]] = []
+    renders: dict[int, Render] = {}
+    if options is not None and again:
+        named = export_image.target_names([path for _, path in again], dest, options, taken)
+        for (photo_id, _), pair in zip(again, named, strict=True):
+            adj = carried.get(photo_id)
+            lut = resolve_lut(adj.lut_id) if adj and adj.lut_id else None
+            renders[len(pairs)] = Render(options, adj, lut)
+            pairs.append(pair)
+    pairs.extend(plan(plain, dest, taken))
+    return ExportJob(id=str(uuid.uuid4()), pairs=pairs, renders=renders)
+
+
 class Exports:
     """Registry of export jobs, keyed by job id."""
 
@@ -148,21 +210,13 @@ class Exports:
         session_id: str,
         dest: Path,
         options: export_image.ExportOptions | None = None,
-        lut: Lut | None = None,
+        photo_ids: list[str] | None = None,
+        resolve_lut: LutResolver = lambda _id: None,
     ) -> str:
         with self._store().session() as conn:
-            photos = selected_paths(conn, session_id)
-        if photos:
+            job = build_job(conn, session_id, dest, options, photo_ids, resolve_lut)
+        if job.pairs:
             dest.mkdir(parents=True, exist_ok=True)
-        renders = options is not None and options.renders
-        pairs = (
-            export_image.target_names(photos, dest, options)
-            if renders and options is not None
-            else plan(photos, dest)
-        )
-        job = ExportJob(
-            id=str(uuid.uuid4()), pairs=pairs, options=options if renders else None, lut=lut
-        )
         with self._lock:
             self._jobs[job.id] = job
         threading.Thread(target=self.run, args=(job,), name=f"export-{job.id}", daemon=True).start()
@@ -181,13 +235,16 @@ class Exports:
     def run(self, job: ExportJob) -> None:
         try:
             self._progress(job)
-            for source, target in job.pairs:
+            for index, (source, target) in enumerate(job.pairs):
                 if job.cancel_requested.is_set():
                     job.state = "cancelled"
                     return
                 try:
-                    if job.options is not None:
-                        export_image.render_one(source, target, job.options, job.lut)
+                    render = job.renders.get(index)
+                    if render is not None:
+                        export_image.render_one(
+                            source, target, render.options, render.adjustments, render.lut
+                        )
                     else:
                         copy_one(source, target)
                     job.copied += 1

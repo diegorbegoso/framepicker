@@ -18,8 +18,6 @@ DEFAULTS: dict[str, Any] = {
     "min_quality": {"sharpness": 90.0, "exposure": 0.55, "eyes": 0.40},
     "time_gap_s": 2.0,
     "hamming_max": 22,
-    # The LUT the previews are shown through (a LUT library id), or None for the photos as shot.
-    "view_lut": None,
     # What "Exportar" does: copy the originals, or re-encode them (see export_image.py).
     "export_options": dict(export_image.DEFAULT_OPTIONS),
 }
@@ -53,10 +51,6 @@ def validate(key: str, value: Any) -> Any:
         return numbers
     if key == "export_options":
         return export_image.validate(value)
-    if key == "view_lut":
-        if value is not None and (not isinstance(value, str) or not value):
-            raise _bad("view_lut must be a LUT id or null")
-        return value
     if key == "min_quality":
         if not isinstance(value, dict) or set(value) != {"sharpness", "exposure", "eyes"}:
             raise _bad("min_quality needs exactly sharpness, exposure and eyes")
@@ -85,6 +79,8 @@ def get_all(conn: sqlite3.Connection) -> dict[str, Any]:
     for row in conn.execute("SELECT key, value FROM settings").fetchall():
         if row["key"] in DEFAULTS:
             result[str(row["key"])] = json.loads(row["value"])
+    # Options saved by an older version may be missing a field the interface now expects.
+    result["export_options"] = export_image.upgrade(result["export_options"])
     return result
 
 

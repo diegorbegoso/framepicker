@@ -171,7 +171,7 @@ def test_migration_0002_upgrades_a_database_with_data(
 
     monkeypatch.setattr(store, "MIGRATIONS_DIR", real_dir)
     upgraded = Store(data)
-    assert upgraded.applied_versions() == ["0001", "0002", "0003", "0004"]
+    assert upgraded.applied_versions() == ["0001", "0002", "0003", "0004", "0005"]
     with upgraded.session() as conn:
         tables = {row["name"] for row in conn.execute("SELECT name FROM sqlite_master")}
         assert conn.execute("SELECT count(*) AS n FROM sessions").fetchone()["n"] == 1

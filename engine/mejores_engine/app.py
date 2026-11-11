@@ -13,6 +13,7 @@ from typing import Any
 
 from mejores_engine import (
     __version__,
+    edits,
     export,
     export_api,
     features,
@@ -96,6 +97,7 @@ def build_dispatcher(
 
     export_api.register(dispatcher, store, roots, exports, library)
     organize.register(dispatcher, store, roots)
+    edits.register(dispatcher, store)
 
     @dispatcher.register("selftest")
     def run_selftest(_params: dict[str, Any]) -> dict[str, bool]:
@@ -186,17 +188,23 @@ def build_dispatcher(
         develop = params.get("develop", False)
         if not isinstance(develop, bool):
             raise RpcError(INVALID_PARAMS, "develop must be true or false")
-        lut_id = params.get("lut_id")
-        if lut_id is not None and not isinstance(lut_id, str):
-            raise RpcError(INVALID_PARAMS, "lut_id must be a string")
-        lut = library.get(lut_id) if lut_id else None
+        edited = params.get("edited", False)
+        if not isinstance(edited, bool):
+            raise RpcError(INVALID_PARAMS, "edited must be true or false")
         with store().session() as conn:
             row = conn.execute(
                 "SELECT path, format FROM photos WHERE id = ?", (photo_id,)
             ).fetchone()
         if row is None:
             raise RpcError(NOT_FOUND, f"photo not found: {photo_id}")
-        image = features.preview_image(Path(row["path"]), str(row["format"]), max_px, develop, lut)
+        adjustments = None
+        if edited:
+            with store().session() as conn:
+                adjustments = edits.load_many(conn, [photo_id]).get(photo_id)
+        lut = library.find(adjustments.lut_id) if adjustments and adjustments.lut_id else None
+        image = features.preview_image(
+            Path(row["path"]), str(row["format"]), max_px, develop, adjustments, lut
+        )
         return {
             "data_url": image.data_url,
             "width": image.width,

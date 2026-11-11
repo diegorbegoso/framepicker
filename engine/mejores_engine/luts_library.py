@@ -64,6 +64,13 @@ class LutLibrary:
         (self.folder / str(row["filename"])).unlink(missing_ok=True)
         self._parsed.pop(lut_id, None)
 
+    def find(self, lut_id: str) -> Lut | None:
+        """The LUT, or None when it is no longer in the library (a correction may outlive it)."""
+        try:
+            return self.get(lut_id)
+        except RpcError:
+            return None
+
     def get(self, lut_id: str) -> Lut:
         cached = self._parsed.get(lut_id)
         if cached is not None:

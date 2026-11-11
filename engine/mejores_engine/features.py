@@ -19,7 +19,7 @@ import rawpy
 from numpy.typing import NDArray
 from PIL import Image
 
-from mejores_engine import luts
+from mejores_engine import adjust, luts
 from mejores_engine.rpc import DECODE_FAILED, RpcError
 
 FEATURES_VERSION = "1"
@@ -176,6 +176,7 @@ def preview_image(
     fmt: str,
     max_px: int = 960,
     develop: bool = False,
+    adjustments: adjust.Adjustments | None = None,
     lut: luts.Lut | None = None,
 ) -> PreviewImage:
     """A JPEG data URL no larger than `max_px`, with its size and the size it was scaled from.
@@ -188,8 +189,8 @@ def preview_image(
         scale = max_px / max(h, w)
         size = (max(1, round(w * scale)), max(1, round(h * scale)))
         bgr = np.asarray(cv2.resize(bgr, size, interpolation=cv2.INTER_AREA), dtype=np.uint8)
-    if lut is not None:
-        bgr = luts.apply(bgr, lut)
+    if adjustments is not None:
+        bgr = adjust.apply(bgr, adjustments, lut)
     out_h, out_w = bgr.shape[:2]
     quality = 80 if max(out_h, out_w) <= 640 else 92  # thumbnails stay light, big views keep detail
     ok, encoded = cv2.imencode(".jpg", bgr, [cv2.IMWRITE_JPEG_QUALITY, quality])

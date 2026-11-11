@@ -1,4 +1,5 @@
-"""Export with settings: re-encode the chosen photos in another format and size, with a LUT.
+"""Export with settings: re-encode the chosen photos in another format and size, with the
+corrections and LUT they carry.
 
 Originals are only read. The result is written to `<target>.part` and renamed into place, like a
 plain copy, and the planner only picks names that are free.
@@ -19,7 +20,7 @@ import rawpy
 from numpy.typing import NDArray
 from PIL import Image
 
-from mejores_engine import features, luts
+from mejores_engine import adjust, features, luts
 from mejores_engine.rpc import DECODE_FAILED, INVALID_PARAMS, RpcError
 from mejores_engine.scan import format_of
 
@@ -35,7 +36,7 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "format": "original",
     "long_edge": 0,
     "quality": 92,
-    "lut_id": None,
+    "apply_edits": True,
     "name_pattern": "{name}",
 }
 
@@ -45,13 +46,13 @@ class ExportOptions:
     format: str = "original"
     long_edge: int = 0  # 0 keeps the size
     quality: int = 92
-    lut_id: str | None = None
+    apply_edits: bool = True  # use the corrections and LUT each photo carries
     name_pattern: str = "{name}"
 
     @property
-    def renders(self) -> bool:
-        """False when the export is a plain copy of the original files."""
-        return self.format != "original" or self.long_edge > 0 or self.lut_id is not None
+    def re_encodes(self) -> bool:
+        """True when every photo is saved again, whatever corrections it has."""
+        return self.format != "original" or self.long_edge > 0
 
 
 def _bad(message: str) -> RpcError:
@@ -67,16 +68,15 @@ def _int(value: Any, name: str, low: int, high: int) -> int:
 def validate(value: Any) -> dict[str, Any]:
     """The options as a clean dict, or INVALID_PARAMS."""
     if not isinstance(value, dict) or set(value) != set(DEFAULT_OPTIONS):
-        raise _bad("export options need format, long_edge, quality, lut_id and name_pattern")
+        raise _bad("export options need format, long_edge, quality, apply_edits and name_pattern")
     if value["format"] not in FORMATS:
         raise _bad(f"format must be one of {', '.join(FORMATS)}")
     edge = value["long_edge"]
     if edge != 0:
         edge = _int(edge, "long_edge", MIN_EDGE, MAX_EDGE)
     quality = _int(value["quality"], "quality", 40, 100)
-    lut_id = value["lut_id"]
-    if lut_id is not None and (not isinstance(lut_id, str) or not lut_id):
-        raise _bad("lut_id must be a LUT id or null")
+    if not isinstance(value["apply_edits"], bool):
+        raise _bad("apply_edits must be true or false")
     pattern = value["name_pattern"]
     if not isinstance(pattern, str) or not pattern or len(pattern) > 80:
         raise _bad("name_pattern must be 1 to 80 characters")
@@ -89,9 +89,19 @@ def validate(value: Any) -> dict[str, Any]:
         "format": value["format"],
         "long_edge": edge,
         "quality": quality,
-        "lut_id": lut_id,
+        "apply_edits": value["apply_edits"],
         "name_pattern": pattern,
     }
+
+
+def upgrade(stored: Any) -> dict[str, Any]:
+    """Options saved by an older version, brought up to date; the defaults when unusable."""
+    if isinstance(stored, dict) and "lut_id" in stored and "apply_edits" not in stored:
+        stored = {**{k: v for k, v in stored.items() if k != "lut_id"}, "apply_edits": True}
+    try:
+        return validate(stored)
+    except RpcError:
+        return dict(DEFAULT_OPTIONS)
 
 
 def parse(value: Any) -> ExportOptions:
@@ -106,9 +116,11 @@ def output_extension(photo: Path, options: ExportOptions) -> str:
     return photo.suffix if suffix in (".jpg", ".jpeg", ".png") else ".jpg"
 
 
-def target_names(photos: list[Path], dest: Path, options: ExportOptions) -> list[tuple[Path, Path]]:
-    """(source, target) for a rendered export; a taken name gets a numeric suffix."""
-    taken: set[str] = set()
+def target_names(
+    photos: list[Path], dest: Path, options: ExportOptions, taken: set[str] | None = None
+) -> list[tuple[Path, Path]]:
+    """(source, target) for rendered files; a taken name gets a numeric suffix."""
+    used = taken if taken is not None else set()
     pairs: list[tuple[Path, Path]] = []
     for index, photo in enumerate(photos, start=1):
         extension = output_extension(photo, options)
@@ -117,10 +129,10 @@ def target_names(photos: list[Path], dest: Path, options: ExportOptions) -> list
         while True:
             stem = base if counter == 0 else f"{base}_{counter}"
             name = f"{stem}{extension}"
-            if name.lower() not in taken and not (dest / name).exists():
+            if name.lower() not in used and not (dest / name).exists():
                 break
             counter += 1
-        taken.add(name.lower())
+        used.add(name.lower())
         pairs.append((photo, dest / name))
     return pairs
 
@@ -179,11 +191,25 @@ def encode(bgr: NDArray[np.uint8], options: ExportOptions, exif: bytes | None) -
     return buffer.getvalue()
 
 
-def render_one(source: Path, target: Path, options: ExportOptions, lut: luts.Lut | None) -> None:
-    """Decode, resize, apply the LUT, encode, and put the file in place without overwriting."""
+def _like_source(source: Path, options: ExportOptions) -> ExportOptions:
+    """With format original but a correction or a size, a RAW becomes a JPEG; others keep theirs."""
+    kind = "png" if source.suffix.lower() == ".png" else "jpg"
+    return ExportOptions(
+        kind, options.long_edge, options.quality, options.apply_edits, options.name_pattern
+    )
+
+
+def render_one(
+    source: Path,
+    target: Path,
+    options: ExportOptions,
+    adjustments: adjust.Adjustments | None,
+    lut: luts.Lut | None,
+) -> None:
+    """Decode, resize, correct, encode, and put the file in place without overwriting."""
     bgr = resize_long_edge(_load(source), options.long_edge)
-    if lut is not None:
-        bgr = luts.apply(bgr, lut)
+    if adjustments is not None and options.apply_edits:
+        bgr = adjust.apply(bgr, adjustments, lut)
     exif = _exif_of(source) if source.suffix.lower() in (".jpg", ".jpeg") else None
     chosen = options if options.format != "original" else _like_source(source, options)
     data = encode(bgr, chosen, exif)
@@ -195,12 +221,3 @@ def render_one(source: Path, target: Path, options: ExportOptions, lut: luts.Lut
         os.replace(part, target)
     finally:
         part.unlink(missing_ok=True)
-
-
-def _like_source(source: Path, options: ExportOptions) -> ExportOptions:
-    """With format 'original' but a LUT or a size, a RAW becomes a JPEG and the rest keep theirs."""
-    suffix = source.suffix.lower()
-    kind = "png" if suffix == ".png" else "jpg"
-    return ExportOptions(
-        kind, options.long_edge, options.quality, options.lut_id, options.name_pattern
-    )

@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
+from mejores_engine.adjust import Adjustments
 from mejores_engine.app import build_dispatcher
 from mejores_engine.features import preview_image
 from mejores_engine.luts import apply, parse_cube
@@ -131,7 +132,7 @@ def test_adding_a_lut_needs_a_granted_valid_cube_file(tmp_path: Path) -> None:
     assert call(dispatcher, "luts_list", {})["result"]["luts"] == []
 
 
-def test_preview_can_show_the_photo_through_a_lut(tmp_path: Path) -> None:
+def test_preview_shows_the_photo_through_the_lut_of_its_corrections(tmp_path: Path) -> None:
     data = tmp_path / "data"
     dispatcher = build_dispatcher(lambda: Store(data))
     source = tmp_path / "dark.cube"
@@ -142,23 +143,34 @@ def test_preview_can_show_the_photo_through_a_lut(tmp_path: Path) -> None:
     lut_id = call(dispatcher, "luts_add", {"path": str(source)})["result"]["id"]
     scanned = call(dispatcher, "scan", {"paths": [str(tmp_path)]})["result"]
     photo_id = next(p["id"] for p in scanned["photos"] if p["path"].endswith("grey.png"))
+    corrections = {
+        "exposure": 0, "contrast": 0, "highlights": 0, "shadows": 0, "temperature": 0,
+        "tint": 0, "saturation": 0, "lut_id": lut_id, "lut_strength": 1,
+    }  # fmt: skip
+    call(
+        dispatcher,
+        "edits_set",
+        {"session_id": scanned["session_id"], "photo_ids": [photo_id], "adjustments": corrections},
+    )
 
     plain = call(dispatcher, "preview", {"photo_id": photo_id})["result"]["data_url"]
-    graded = call(dispatcher, "preview", {"photo_id": photo_id, "lut_id": lut_id})["result"][
+    graded = call(dispatcher, "preview", {"photo_id": photo_id, "edited": True})["result"][
         "data_url"
     ]
     assert plain != graded
-    missing = call(dispatcher, "preview", {"photo_id": photo_id, "lut_id": "nope"})
-    assert missing["error"]["code"] == NOT_FOUND
-    bad = call(dispatcher, "preview", {"photo_id": photo_id, "lut_id": 3})
+    bad = call(dispatcher, "preview", {"photo_id": photo_id, "edited": "yes"})
     assert bad["error"]["code"] == INVALID_PARAMS
+    # A LUT removed from the library after the correction was made must not break the preview.
+    call(dispatcher, "luts_remove", {"lut_id": lut_id})
+    still = call(dispatcher, "preview", {"photo_id": photo_id, "edited": True})
+    assert "result" in still
 
 
 def test_preview_image_applies_the_lut_after_scaling(tmp_path: Path) -> None:
     path = tmp_path / "big.png"
     assert cv2.imwrite(str(path), np.full((400, 800, 3), 200, dtype=np.uint8))
     lut = parse_cube(cube_text(tint=(0.5, 0.5, 0.5)))
-    graded = preview_image(path, "png", max_px=100, lut=lut)
+    graded = preview_image(path, "png", max_px=100, adjustments=Adjustments(lut_id="x"), lut=lut)
     assert (graded.width, graded.height) == (100, 50)
 
 
