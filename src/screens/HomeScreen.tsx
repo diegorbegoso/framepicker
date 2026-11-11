@@ -12,13 +12,18 @@ import {
   scan,
   select,
 } from "../lib/engine.ts";
+import { RecentSessions } from "./RecentSessions.tsx";
 
-type Props = { onResult: (sessionId: string, result: SelectResult) => void };
+type Props = {
+  /** `notice` is set when the session came back with the work already done in it. */
+  onResult: (sessionId: string, result: SelectResult, notice?: string) => void;
+};
 type Running = { sessionId: string; jobId: string | null; done: number; total: number };
 
 const NOT_ALLOWED = "Esa carpeta no está permitida. Elígela de nuevo con el botón.";
 const NO_PHOTOS = "No encontré fotos compatibles en esa selección.";
 const FAILED = "No se pudo analizar la selección.";
+const RESUMED = "Recuperé tu avance de estas fotos.";
 
 const card: CSSProperties = {
   background: "var(--surface)",
@@ -125,6 +130,11 @@ export function HomeScreen({ onResult }: Props) {
         setError(NO_PHOTOS);
         return;
       }
+      if (scanned.resumed) {
+        // Picked before: its bursts, choices and corrections are saved, so there is nothing to analyse.
+        onResult(scanned.session_id, await select(scanned.session_id), RESUMED);
+        return;
+      }
       const base = { sessionId: scanned.session_id, done: 0, total: scanned.photos.length };
       update({ ...base, jobId: null });
       const { job_id: jobId } = await analyze(scanned.session_id);
@@ -145,66 +155,69 @@ export function HomeScreen({ onResult }: Props) {
   const label = running ? `Analizando ${running.done} de ${running.total} fotos` : "";
 
   return (
-    <section aria-labelledby="home-title" style={card}>
-      <h2 id="home-title" style={{ margin: 0 }}>
-        Elige tus fotos
-      </h2>
-      <p style={{ margin: 0, color: "var(--fg-muted)" }}>
-        Selecciona las mejores tomas de tus ráfagas, sin salir de tu equipo.
-      </p>
-      {running ? (
-        <div style={{ display: "grid", gap: "var(--space-2)" }}>
-          <span id="progress-label">{label}</span>
-          <progress
-            aria-labelledby="progress-label"
-            aria-valuenow={running.done}
-            aria-valuemin={0}
-            aria-valuemax={running.total}
-            value={running.done}
-            max={Math.max(running.total, 1)}
-            style={{ width: "100%", accentColor: "var(--primary)" }}
-          />
+    <>
+      <section aria-labelledby="home-title" style={card}>
+        <h2 id="home-title" style={{ margin: 0 }}>
+          Elige tus fotos
+        </h2>
+        <p style={{ margin: 0, color: "var(--fg-muted)" }}>
+          Selecciona las mejores tomas de tus ráfagas, sin salir de tu equipo.
+        </p>
+        {running ? (
+          <div style={{ display: "grid", gap: "var(--space-2)" }}>
+            <span id="progress-label">{label}</span>
+            <progress
+              aria-labelledby="progress-label"
+              aria-valuenow={running.done}
+              aria-valuemin={0}
+              aria-valuemax={running.total}
+              value={running.done}
+              max={Math.max(running.total, 1)}
+              style={{ width: "100%", accentColor: "var(--primary)" }}
+            />
+            <div style={row}>
+              <button
+                type="button"
+                style={button(false)}
+                disabled={running.jobId === null}
+                onClick={() => running.jobId && void cancel(running.jobId).catch(() => undefined)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
           <div style={row}>
             <button
               type="button"
-              style={button(false)}
-              disabled={running.jobId === null}
-              onClick={() => running.jobId && void cancel(running.jobId).catch(() => undefined)}
+              style={button(true)}
+              disabled={preparing}
+              onClick={() => void start("folder")}
             >
-              Cancelar
+              Elegir carpeta
+            </button>
+            <button
+              type="button"
+              style={button(false)}
+              disabled={preparing}
+              onClick={() => void start("files")}
+            >
+              Elegir archivos
             </button>
           </div>
-        </div>
-      ) : (
-        <div style={row}>
-          <button
-            type="button"
-            style={button(true)}
-            disabled={preparing}
-            onClick={() => void start("folder")}
-          >
-            Elegir carpeta
-          </button>
-          <button
-            type="button"
-            style={button(false)}
-            disabled={preparing}
-            onClick={() => void start("files")}
-          >
-            Elegir archivos
-          </button>
-        </div>
-      )}
-      {preparing && !running && (
-        <p role="status" style={{ margin: 0, color: "var(--fg-muted)" }}>
-          Preparando tu selección…
-        </p>
-      )}
-      {error && (
-        <p role="alert" style={alertStyle}>
-          {error}
-        </p>
-      )}
-    </section>
+        )}
+        {preparing && !running && (
+          <p role="status" style={{ margin: 0, color: "var(--fg-muted)" }}>
+            Preparando tu selección…
+          </p>
+        )}
+        {error && (
+          <p role="alert" style={alertStyle}>
+            {error}
+          </p>
+        )}
+      </section>
+      <RecentSessions onOpen={onResult} disabled={preparing || running !== null} />
+    </>
   );
 }

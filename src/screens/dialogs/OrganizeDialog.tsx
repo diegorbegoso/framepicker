@@ -14,7 +14,8 @@ type Props = {
 };
 
 const DEFAULT_NAME = "No elegidas";
-const PATH_NOT_ALLOWED = "Esa carpeta ya no está permitida. Vuelve a elegirla desde Inicio.";
+const PATH_NOT_ALLOWED =
+  "Para mover archivos tengo que volver a recibir el permiso de esa carpeta. Elígela de nuevo.";
 const BAD_NAME = "Ese nombre de carpeta no es válido.";
 
 function failure(error: unknown): string {
@@ -37,10 +38,13 @@ export function OrganizeDialog({ sessionId, batchId, onBatch, onClose }: Props) 
   const [working, setWorking] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The folders are granted only while the program runs: a resumed session asks for them again.
+  const [needsFolder, setNeedsFolder] = useState(false);
 
   useEffect(() => {
     let current = true;
     setError(null);
+    setNeedsFolder(false);
     engine
       .organizePreview(sessionId, name.trim() || DEFAULT_NAME)
       .then((next) => current && setPreview(next))
@@ -68,9 +72,24 @@ export function OrganizeDialog({ sessionId, batchId, onBatch, onClose }: Props) 
       setPreview(await engine.organizePreview(sessionId, name.trim() || DEFAULT_NAME));
     } catch (problem) {
       setError(failure(problem));
+      setNeedsFolder(
+        problem instanceof engine.EngineError && problem.code === engine.PATH_NOT_ALLOWED,
+      );
     } finally {
       setWorking(false);
     }
+  }
+
+  /** The program forgets the folders it was allowed into when it closes: ask for this one again. */
+  async function allowFolder() {
+    try {
+      if ((await engine.pickFolder()) === null) return;
+    } catch {
+      setError("No se pudo elegir la carpeta.");
+      return;
+    }
+    setNeedsFolder(false);
+    await organize();
   }
 
   async function undo() {
@@ -153,6 +172,11 @@ export function OrganizeDialog({ sessionId, batchId, onBatch, onClose }: Props) 
           </Button>
         ) : null}
       </div>
+      {needsFolder ? (
+        <Button icon="folder" disabled={working} onClick={() => void allowFolder()}>
+          Elegir la carpeta de nuevo
+        </Button>
+      ) : null}
       {done ? (
         <p role="status" className={styles.done}>
           {done}

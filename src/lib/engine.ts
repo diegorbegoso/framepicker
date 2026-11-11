@@ -19,6 +19,8 @@ export const ScanResult = z.object({
   session_id: z.string(),
   photos: z.array(ScannedPhoto),
   skipped: z.number(),
+  /** True when these photos were picked before: the session, with its progress, came back. */
+  resumed: z.boolean().optional(),
 });
 export type ScanResult = z.infer<typeof ScanResult>;
 
@@ -60,7 +62,11 @@ const SelectedBurst = z.object({
   no_pick: z.boolean(),
   photos: z.array(SelectedPhoto),
 });
-export const SelectResult = z.object({ bursts: z.array(SelectedBurst) });
+export const SelectResult = z.object({
+  bursts: z.array(SelectedBurst),
+  /** The burst the person was looking at when they left, if it is known. */
+  last_burst_id: z.string().nullable().optional(),
+});
 export type SelectedPhoto = z.infer<typeof SelectedPhoto>;
 export type SelectedBurst = z.infer<typeof SelectedBurst>;
 export type SelectResult = z.infer<typeof SelectResult>;
@@ -317,6 +323,50 @@ export function setEdits(sessionId: string, photoIds: string[], adjustments: Adj
 
 export function resetEdits(sessionId: string, photoIds: string[]) {
   return engineRequest("edits_reset", { session_id: sessionId, photo_ids: photoIds }, EditsSaved);
+}
+
+export const SessionSummary = z.object({
+  id: z.string(),
+  label: z.string(),
+  folder: z.string(),
+  photos: z.number(),
+  bursts: z.number(),
+  picked: z.number(),
+  reviewed: z.number(),
+  edited: z.number(),
+  updated_at: z.string(),
+  last_burst_id: z.string().nullable(),
+  /** False when the photos are no longer where they were. */
+  available: z.boolean(),
+});
+export type SessionSummary = z.infer<typeof SessionSummary>;
+
+/** The sessions worked on before, latest first. */
+export async function sessionsList(): Promise<SessionSummary[]> {
+  const reply = await engineRequest(
+    "sessions_list",
+    {},
+    z.object({ sessions: z.array(SessionSummary) }),
+  );
+  return reply.sessions;
+}
+
+/** Remembers which burst the person is on, and that the session was just used. */
+export function sessionTouch(sessionId: string, burstId?: string) {
+  return engineRequest(
+    "session_touch",
+    { session_id: sessionId, ...(burstId ? { burst_id: burstId } : {}) },
+    z.object({ session_id: z.string() }),
+  );
+}
+
+/** Forgets a session (its choices and corrections). The photos are not touched. */
+export function sessionForget(sessionId: string) {
+  return engineRequest(
+    "session_forget",
+    { session_id: sessionId },
+    z.object({ session_id: z.string() }),
+  );
 }
 
 export function getSettings() {

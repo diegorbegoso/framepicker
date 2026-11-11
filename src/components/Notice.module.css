@@ -1,0 +1,21 @@
+.root {
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 5;
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--success-soft);
+  color: var(--success);
+  font-weight: 600;
+  box-shadow: var(--shadow-2);
+  animation: rise var(--dur) var(--ease-out);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}

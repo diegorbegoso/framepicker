@@ -6,7 +6,7 @@ import { applyTheme, loadTheme, type Theme } from "./lib/theme.ts";
 import { HomeScreen } from "./screens/HomeScreen.tsx";
 import { ReviewScreen } from "./screens/ReviewScreen.tsx";
 
-type Review = { sessionId: string; result: SelectResult };
+type Review = { sessionId: string; result: SelectResult; notice?: string };
 
 export function App() {
   const [theme, setTheme] = useState<Theme>("light");
@@ -35,6 +35,7 @@ export function App() {
             key={review.sessionId}
             sessionId={review.sessionId}
             initial={review.result}
+            notice={review.notice}
             theme={theme}
             onThemeChange={setTheme}
             immersive={immersive}
@@ -50,7 +51,9 @@ export function App() {
           <TopBar theme={theme} onThemeChange={setTheme} />
           <main className={styles.main}>
             <div className={styles.page}>
-              <HomeScreen onResult={(sessionId, result) => setReview({ sessionId, result })} />
+              <HomeScreen
+                onResult={(sessionId, result, notice) => setReview({ sessionId, result, notice })}
+              />
             </div>
           </main>
         </>

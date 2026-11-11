@@ -112,6 +112,7 @@ export function BurstList({ bursts, activeId, filter, onFilter, onSelect, onRese
         <Button variant="ghost" size="sm" icon="folder" onClick={onReset}>
           Elegir otras fotos
         </Button>
+        <span className={styles.saved}>Tu avance queda guardado</span>
       </footer>
     </nav>
   );

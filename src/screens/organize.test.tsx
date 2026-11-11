@@ -11,6 +11,7 @@ vi.mock("../lib/engine.ts", async (importOriginal) => {
     organizePreview: vi.fn(),
     organizeApply: vi.fn(),
     organizeUndo: vi.fn(),
+    pickFolder: vi.fn(),
   };
 });
 
@@ -105,8 +106,14 @@ describe("OrganizeDialog", () => {
     const { user } = open();
     await user.click(await screen.findByRole("button", { name: "Mover 3 fotos" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Esa carpeta ya no está permitida. Vuelve a elegirla desde Inicio.",
+      "Para mover archivos tengo que volver a recibir el permiso de esa carpeta. Elígela de nuevo.",
     );
+    // Picking the folder again grants it, and the move is tried once more.
+    mocked.pickFolder.mockResolvedValue("C:\\boda");
+    mocked.organizeApply.mockResolvedValue({ batch_id: "b2", moved: 3, failed: 0, errors: [] });
+    await user.click(screen.getByRole("button", { name: "Elegir la carpeta de nuevo" }));
+    expect(await screen.findByText(/Listo: se movieron 3 archivos/)).toBeInTheDocument();
+    expect(mocked.pickFolder).toHaveBeenCalled();
     mocked.organizePreview.mockRejectedValue(new EngineError(-32602, "bad name"));
     await user.type(screen.getByLabelText("Nombre de la subcarpeta"), "?");
     expect(await screen.findByText("Ese nombre de carpeta no es válido.")).toBeInTheDocument();

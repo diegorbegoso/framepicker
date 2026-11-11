@@ -22,6 +22,8 @@ import { useReviewKeys } from "./review/useReviewKeys.ts";
 type Props = {
   sessionId: string;
   initial: SelectResult;
+  /** Said once when the review opens, e.g. that earlier work was recovered. */
+  notice?: string;
   /** False while another screen is on top: the keyboard and full screen are then left alone. */
   active?: boolean;
   theme: Theme;
@@ -34,6 +36,7 @@ type Props = {
 export function ReviewScreen({
   sessionId,
   initial,
+  notice,
   active = true,
   theme,
   onThemeChange,
@@ -42,8 +45,10 @@ export function ReviewScreen({
   onReset,
 }: Props) {
   const [bursts, setBursts] = useState<SelectedBurst[]>(initial.bursts);
-  const [activeId, setActiveId] = useState<string | undefined>(initial.bursts[0]?.id);
-  const [focused, setFocused] = useState(() => firstPickedIndex(initial.bursts[0]?.photos ?? []));
+  // Back where the person left off: the burst they were looking at, on its chosen photo.
+  const start = initial.bursts.find((b) => b.id === initial.last_burst_id) ?? initial.bursts[0];
+  const [activeId, setActiveId] = useState<string | undefined>(start?.id);
+  const [focused, setFocused] = useState(() => firstPickedIndex(start?.photos ?? []));
   const [filter, setFilter] = useState<BurstFilter>("all");
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<Mode>("bursts");
@@ -76,8 +81,10 @@ export function ReviewScreen({
       setActiveId(id);
       setFocused(firstPickedIndex(bursts.find((b) => b.id === id)?.photos ?? []));
       setReferenceId(undefined);
+      // So the session opens here next time; failing to remember it is not worth an error.
+      void engine.sessionTouch(sessionId, id).catch(() => undefined);
     },
-    [bursts],
+    [bursts, sessionId],
   );
 
   async function toggle(photo: SelectedPhoto) {
@@ -241,6 +248,7 @@ export function ReviewScreen({
           {error}
         </p>
       ) : null}
+      {notice ? <p className={styles.notice}>{notice}</p> : null}
       <p role="status" className={styles.srOnly}>
         {announcement}
       </p>
