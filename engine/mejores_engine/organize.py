@@ -20,6 +20,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from mejores_engine import sessions
 from mejores_engine.export import sidecar_of
 from mejores_engine.rpc import (
     INVALID_PARAMS,
@@ -144,6 +145,7 @@ def apply(
     plan = make_plan(conn, session_id, folder_name)
     _check_roots(plan, roots)
     batch_id = str(uuid.uuid4())
+    sessions.touch(conn, session_id)
     conn.execute(
         "INSERT INTO organize_batches (id, session_id, folder_name, created_at) "
         "VALUES (?, ?, ?, ?)",

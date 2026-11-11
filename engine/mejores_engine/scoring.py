@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from mejores_engine import grouping
+from mejores_engine import grouping, sessions
 from mejores_engine.grouping import natural_key
 from mejores_engine.rpc import INVALID_PARAMS, NOT_FOUND, RpcError
 
@@ -185,6 +185,7 @@ def confirm_burst(conn: sqlite3.Connection, burst_id: str) -> int:
     if conn.execute("SELECT 1 FROM bursts WHERE id = ?", (burst_id,)).fetchone() is None:
         raise RpcError(NOT_FOUND, f"burst not found: {burst_id}")
     marked = conn.execute("UPDATE selections SET source = 'user' WHERE burst_id = ?", (burst_id,))
+    sessions.touch_burst(conn, burst_id)
     if marked.rowcount == 0:
         raise RpcError(INVALID_PARAMS, "the burst has no selections yet; run select first")
     return int(marked.rowcount)
@@ -201,3 +202,4 @@ def set_pick(conn: sqlite3.Connection, burst_id: str, photo_id: str, selected: b
         "VALUES (?, ?, 'user', ?)",
         (burst_id, photo_id, int(selected)),
     )
+    sessions.touch_burst(conn, burst_id)

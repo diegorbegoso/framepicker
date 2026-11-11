@@ -16,7 +16,7 @@ from mejores_engine import features, store
 from mejores_engine.app import build_dispatcher
 from mejores_engine.features import Features
 from mejores_engine.rpc import DECODE_FAILED, Dispatcher, RpcError
-from mejores_engine.store import EXPECTED_TABLES, Store
+from mejores_engine.store import EXPECTED_TABLES, Store, migration_files
 
 FIXED = Features(
     width=10,
@@ -171,7 +171,7 @@ def test_migration_0002_upgrades_a_database_with_data(
 
     monkeypatch.setattr(store, "MIGRATIONS_DIR", real_dir)
     upgraded = Store(data)
-    assert upgraded.applied_versions() == ["0001", "0002", "0003", "0004", "0005"]
+    assert upgraded.applied_versions() == [version for version, _ in migration_files()]
     with upgraded.session() as conn:
         tables = {row["name"] for row in conn.execute("SELECT name FROM sqlite_master")}
         assert conn.execute("SELECT count(*) AS n FROM sessions").fetchone()["n"] == 1

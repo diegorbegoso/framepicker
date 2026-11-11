@@ -7,7 +7,6 @@ import os
 import sys
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +20,7 @@ from mejores_engine import (
     luts_library,
     organize,
     scoring,
+    sessions,
     settings,
 )
 from mejores_engine.analyze import ExecutorFactory, Extractor, Jobs
@@ -98,6 +98,7 @@ def build_dispatcher(
     export_api.register(dispatcher, store, roots, exports, library)
     organize.register(dispatcher, store, roots)
     edits.register(dispatcher, store)
+    sessions.register(dispatcher, store)
 
     @dispatcher.register("selftest")
     def run_selftest(_params: dict[str, Any]) -> dict[str, bool]:
@@ -147,12 +148,21 @@ def build_dispatcher(
         files, skipped = collect(paths, recursive)
         folders = [path for path in paths if path.is_dir()]
         label = folders[0].name if folders else FILES_LABEL
-        session_id = str(uuid.uuid4())
+        key = sessions.source_key(files)
         photos: list[dict[str, Any]] = []
         with store().session() as conn:
+            # The same photos picked again: go back to that session, with everything done in it.
+            again = sessions.find_resumable(conn, key)
+            if again is not None:
+                sessions.touch(conn, again)
+                found = sessions.photos_of(conn, again)
+                return {"session_id": again, "photos": found, "skipped": skipped, "resumed": True}
+            session_id = str(uuid.uuid4())
+            stamp = sessions.now()
             conn.execute(
-                "INSERT INTO sessions (id, label, created_at) VALUES (?, ?, ?)",
-                (session_id, label, datetime.now(UTC).isoformat()),
+                "INSERT INTO sessions (id, label, created_at, source_key, updated_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (session_id, label, stamp, key, stamp),
             )
             for file in files:
                 info = os.stat(file)
@@ -175,7 +185,7 @@ def build_dispatcher(
                     ),
                 )
                 photos.append(photo)
-        return {"session_id": session_id, "photos": photos, "skipped": skipped}
+        return {"session_id": session_id, "photos": photos, "skipped": skipped, "resumed": False}
 
     @dispatcher.register("preview")
     def preview(params: dict[str, Any]) -> dict[str, Any]:
@@ -234,7 +244,8 @@ def build_dispatcher(
             if exists is None:
                 raise RpcError(NOT_FOUND, f"session not found: {session_id}")
             chosen = scoring.select_session(conn, session_id, settings.get_all(conn))
-        return {"bursts": chosen}
+            last = sessions.last_burst(conn, session_id)
+        return {"bursts": chosen, "last_burst_id": last}
 
     @dispatcher.register("confirm_burst")
     def confirm_burst(params: dict[str, Any]) -> dict[str, Any]:

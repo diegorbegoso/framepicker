@@ -12,7 +12,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from mejores_engine import adjust
+from mejores_engine import adjust, sessions
 from mejores_engine.adjust import Adjustments
 from mejores_engine.rpc import INVALID_PARAMS, NOT_FOUND, Dispatcher, RpcError
 from mejores_engine.store import Store
@@ -77,7 +77,8 @@ def register(dispatcher: Dispatcher, store: Callable[[], Store]) -> None:
     def edits_set(params: dict[str, Any]) -> dict[str, Any]:
         clean = adjust.validate(params.get("adjustments"))
         with store().session() as conn:
-            _session, ids = _photo_ids(conn, params)
+            session_id, ids = _photo_ids(conn, params)
+            sessions.touch(conn, session_id)
             now = datetime.now(UTC).isoformat()
             for photo_id in ids:
                 if adjust.parse(clean).is_identity:
@@ -94,7 +95,8 @@ def register(dispatcher: Dispatcher, store: Callable[[], Store]) -> None:
     @dispatcher.register("edits_reset")
     def edits_reset(params: dict[str, Any]) -> dict[str, Any]:
         with store().session() as conn:
-            _session, ids = _photo_ids(conn, params)
+            session_id, ids = _photo_ids(conn, params)
+            sessions.touch(conn, session_id)
             for photo_id in ids:
                 conn.execute("DELETE FROM photo_edits WHERE photo_id = ?", (photo_id,))
         return {"photo_ids": ids}
