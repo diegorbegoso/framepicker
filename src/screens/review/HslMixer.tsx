@@ -42,13 +42,14 @@ export function HslMixer({ hsl, disabled, onChange }: Props) {
           <button
             key={id}
             type="button"
-            aria-label={NAMES[id]}
             aria-pressed={color === id}
-            title={NAMES[id]}
-            className={cx(styles.swatch, styles[id], color === id && styles.on)}
+            className={cx(styles.swatch, color === id && styles.on)}
             onClick={() => setColor(id)}
           >
-            {hsl[id].some((n) => n !== 0) ? <span className={styles.mark} /> : null}
+            <span className={cx(styles.dot, styles[id])} aria-hidden="true">
+              {hsl[id].some((n) => n !== 0) ? <span className={styles.mark} /> : null}
+            </span>
+            <span className={styles.name}>{NAMES[id]}</span>
           </button>
         ))}
       </div>
