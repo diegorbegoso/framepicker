@@ -25,6 +25,7 @@ from mejores_engine import (
     scoring,
     sessions,
     settings,
+    straighten,
 )
 from mejores_engine.analyze import ExecutorFactory, Extractor, Jobs
 from mejores_engine.rpc import (
@@ -102,6 +103,7 @@ def build_dispatcher(
     export_api.register(dispatcher, store, roots, exports, library)
     organize.register(dispatcher, store, roots)
     preview_api.register(dispatcher, store, library)
+    straighten.register(dispatcher, store)
     edits.register(dispatcher, store)
     autofix.register(dispatcher, store, autofixes)
     sessions.register(dispatcher, store)

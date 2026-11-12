@@ -56,7 +56,7 @@ def load_session(conn: sqlite3.Connection, session_id: str) -> dict[str, dict[st
         "JOIN photos p ON p.id = e.photo_id WHERE p.session_id = ?",
         (session_id,),
     ).fetchall()
-    return {str(r["photo_id"]): dict(json.loads(r["params_json"])) for r in rows}
+    return {str(r["photo_id"]): adjust.validate(json.loads(r["params_json"])) for r in rows}
 
 
 def _photo_ids(conn: sqlite3.Connection, params: dict[str, Any]) -> tuple[str, list[str]]:

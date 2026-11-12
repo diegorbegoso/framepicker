@@ -72,7 +72,7 @@ def test_a_draft_wins_over_the_saved_corrections(tmp_path: Path) -> None:
 
 def test_a_bad_draft_is_refused(tmp_path: Path) -> None:
     shoot = Shoot(tmp_path)
-    assert shoot.preview(adjustments={"exposure": 1})["error"]["code"] == INVALID_PARAMS
+    assert shoot.preview(adjustments={"mystery": 1})["error"]["code"] == INVALID_PARAMS
     bad = shoot.preview(adjustments={**NEUTRAL, "exposure": 9})
     assert bad["error"]["code"] == INVALID_PARAMS
     assert shoot.preview(adjustments="nope")["error"]["code"] == INVALID_PARAMS

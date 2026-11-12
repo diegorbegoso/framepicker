@@ -207,9 +207,13 @@ def render_one(
     lut: luts.Lut | None,
 ) -> None:
     """Decode, resize, correct, encode, and put the file in place without overwriting."""
-    bgr = resize_long_edge(_load(source), options.long_edge)
-    if adjustments is not None and options.apply_edits:
-        bgr = adjust.apply(bgr, adjustments, lut)
+    bgr = _load(source)
+    edited = adjustments if adjustments is not None and options.apply_edits else None
+    if edited is not None:
+        bgr = adjust.apply_geometry(bgr, edited)  # the long edge is measured on the cropped photo
+    bgr = resize_long_edge(bgr, options.long_edge)
+    if edited is not None:
+        bgr = adjust.apply_look(bgr, edited, lut)
     exif = _exif_of(source) if source.suffix.lower() in (".jpg", ".jpeg") else None
     chosen = options if options.format != "original" else _like_source(source, options)
     data = encode(bgr, chosen, exif)

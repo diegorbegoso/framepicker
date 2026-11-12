@@ -143,7 +143,8 @@ def test_validate_accepts_the_defaults_and_rebuilds_the_same_values() -> None:
         good(lut_strength=2),
         good(lut_id=""),
         good(lut_id=4),
-        {"exposure": 0},
+        {"exposure": 0, "mystery": 1},
+        {"exposure": "1"},
         "nope",
     ],
 )

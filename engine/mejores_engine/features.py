@@ -223,9 +223,14 @@ def preview_image(
     `develop` asks a RAW for a half-size demosaic instead of the camera's embedded preview.
     """
     bgr, w, h = scaled_base(path, fmt, max_px, develop)
+    base_shape = bgr.shape[:2]
     if adjustments is not None:
         bgr = adjust.apply(bgr, adjustments, lut)
     out_h, out_w = bgr.shape[:2]
+    base_h, base_w = base_shape
+    if (out_h, out_w) != (base_h, base_w):
+        # A crop or a turn changed the picture: the 100 % size follows the same proportion.
+        w, h = max(1, round(w * out_w / base_w)), max(1, round(h * out_h / base_h))
     quality = 80 if max(out_h, out_w) <= 640 else 92  # thumbnails stay light, big views keep detail
     ok, encoded = cv2.imencode(".jpg", bgr, [cv2.IMWRITE_JPEG_QUALITY, quality])
     if not ok:
