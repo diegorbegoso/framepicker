@@ -26,7 +26,7 @@ vi.mock("../lib/engine.ts", async (importOriginal) => {
 vi.mock("../lib/window.ts", () => ({ setFullscreen: vi.fn() }));
 
 const mocked = vi.mocked(engine);
-const WARM = { id: "l1", name: "Cálido", size: 33 };
+const WARM = { id: "l1", name: "Cálido", size: 33, group: null, favorite: false };
 
 beforeEach(() => {
   vi.clearAllMocks();

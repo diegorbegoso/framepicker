@@ -20,13 +20,16 @@ vi.mock("../lib/engine.ts", async (importOriginal) => {
     addLutFolder: vi.fn(),
     pickFolder: vi.fn(),
     removeLut: vi.fn(),
+    updateLut: vi.fn(),
+    renameLutGroup: vi.fn(),
+    removeLutGroup: vi.fn(),
     pickLuts: vi.fn(),
   };
 });
 vi.mock("../lib/window.ts", () => ({ setFullscreen: vi.fn() }));
 
 const mocked = vi.mocked(engine);
-const WARM = { id: "l1", name: "Cálido", size: 33 };
+const WARM = { id: "l1", name: "Cálido", size: 33, group: null, favorite: false };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -69,8 +72,8 @@ describe("the LUT library", () => {
   });
 
   const NEW = [
-    { id: "l2", name: "Frío", size: 17 },
-    { id: "l3", name: "Cine", size: 33 },
+    { id: "l2", name: "Frío", size: 17, group: null, favorite: false },
+    { id: "l3", name: "Cine", size: 33, group: null, favorite: false },
   ];
 
   it("loads several files picked at once and says they stay in the program", async () => {
@@ -89,7 +92,7 @@ describe("the LUT library", () => {
     mocked.pickLuts.mockResolvedValue(["a", "b", "c", "d"]);
     mocked.addLuts.mockResolvedValue({
       added: [NEW[0] as engine.LutInfo],
-      duplicates: [{ path: "C:\\looks\\b.cube", name: "Cálido" }],
+      duplicates: [{ path: "C:\\looks\\b.cube", name: "Cálido", renamed: false }],
       failed: [{ path: "C:\\looks\\roto.cube", message: "invalid .cube file" }],
     });
     const { user, dialog } = await openLuts();
@@ -138,9 +141,9 @@ describe("the LUT library", () => {
 
   it("keeps the list in name order", async () => {
     mocked.listLuts.mockResolvedValue([
-      { id: "z", name: "Zeta", size: 3 },
-      { id: "a", name: "alfa", size: 3 },
-      { id: "m", name: "Medio", size: 3 },
+      { id: "z", name: "Zeta", size: 3, group: null, favorite: false },
+      { id: "a", name: "alfa", size: 3, group: null, favorite: false },
+      { id: "m", name: "Medio", size: 3, group: null, favorite: false },
     ]);
     const { dialog } = await openLuts();
     await within(dialog).findByText("Zeta");
@@ -167,22 +170,91 @@ describe("the LUT library", () => {
   });
 });
 
+describe("the LUT library, ordered", () => {
+  const A = { id: "a", name: "Aurora", size: 3, group: "Boda", favorite: false };
+  const B = { id: "b", name: "Brisa", size: 3, group: "Boda", favorite: false };
+  const C = { id: "c", name: "Cine", size: 3, group: null, favorite: false };
+
+  it("keeps a loaded folder as a sub-list with its count", async () => {
+    mocked.listLuts.mockResolvedValue([A, B, C]);
+    const { dialog } = await openLuts();
+    expect(await within(dialog).findByText("Aurora")).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Cambiar el nombre del grupo Boda" }),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText("2")).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Plegar Boda" }));
+    expect(within(dialog).queryByText("Aurora")).not.toBeInTheDocument();
+    expect(within(dialog).getByText("Cine")).toBeInTheDocument();
+  });
+
+  it("marks a favourite, renames and moves a LUT", async () => {
+    mocked.listLuts.mockResolvedValue([A, C]);
+    mocked.updateLut.mockImplementation(async (id, changes) => ({
+      ...(id === "a" ? A : C),
+      ...changes,
+    }));
+    const { user, dialog } = await openLuts();
+    await user.click(
+      await within(dialog).findByRole("button", { name: "Marcar como favorito Cine" }),
+    );
+    expect(mocked.updateLut).toHaveBeenCalledWith("c", { favorite: true });
+    expect(
+      await within(dialog).findByRole("button", { name: "Quitar de favoritos Cine" }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    await user.selectOptions(
+      within(dialog).getByRole("combobox", { name: "Grupo de Cine" }),
+      "Boda",
+    );
+    expect(mocked.updateLut).toHaveBeenCalledWith("c", { group: "Boda" });
+
+    await user.click(within(dialog).getByRole("button", { name: "Cambiar el nombre de Aurora" }));
+    await user.keyboard("{Control>}a{/Control}Alba{Enter}");
+    expect(mocked.updateLut).toHaveBeenCalledWith("a", { name: "Alba" });
+    expect(await within(dialog).findByText("Alba")).toBeInTheDocument();
+  });
+
+  it("asks before removing a whole group", async () => {
+    mocked.listLuts.mockResolvedValue([A, B]);
+    mocked.removeLutGroup.mockResolvedValue({ removed: 2 });
+    const { user, dialog } = await openLuts();
+    await user.click(await within(dialog).findByRole("button", { name: "Quitar el grupo Boda" }));
+    expect(mocked.removeLutGroup).not.toHaveBeenCalled();
+    mocked.listLuts.mockResolvedValue([]);
+    await user.click(within(dialog).getByRole("button", { name: "Quitar grupo" }));
+    expect(mocked.removeLutGroup).toHaveBeenCalledWith("Boda");
+    expect(await within(dialog).findByText("Se quitó el grupo Boda (2 LUT).")).toBeInTheDocument();
+  });
+});
+
 describe("summarizeLuts", () => {
-  const lut = (name: string) => ({ id: name, name, size: 3 });
+  it("counts the ones that were renamed", () => {
+    const duplicates = [{ path: "x", name: "A", renamed: true }];
+    expect(summarizeLuts({ added: [], duplicates, failed: [] })).toBe(
+      "1 ya estaba. 1 se renombró.",
+    );
+  });
+
+  const lut = (name: string) => ({ id: name, name, size: 3, group: null, favorite: false });
 
   it("handles every mix", () => {
     expect(summarizeLuts({ added: [lut("A")], duplicates: [], failed: [] })).toBe(
       "Se cargó A. Quedan guardados en el programa.",
     );
-    expect(summarizeLuts({ added: [], duplicates: [{ path: "x", name: "A" }], failed: [] })).toBe(
-      "1 ya estaba.",
-    );
+    expect(
+      summarizeLuts({
+        added: [],
+        duplicates: [{ path: "x", name: "A", renamed: false }],
+        failed: [],
+      }),
+    ).toBe("1 ya estaba.");
     expect(
       summarizeLuts({
         added: [],
         duplicates: [
-          { path: "x", name: "A" },
-          { path: "y", name: "B" },
+          { path: "x", name: "A", renamed: false },
+          { path: "y", name: "B", renamed: false },
         ],
         failed: [],
       }),

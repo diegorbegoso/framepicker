@@ -10,11 +10,20 @@ type Props = {
   /** What the pencil button is called for screen readers: "Cambiar el nombre de BODA". */
   label: string;
   maxLength?: number;
+  /** What the open field is called; the session by default. */
+  fieldLabel?: string;
   className?: string;
 };
 
 /** A name you can change on the spot: pencil → field, Enter saves, Escape or leaving cancels. */
-export function InlineName({ value, onSave, label, maxLength = 80, className }: Props) {
+export function InlineName({
+  value,
+  onSave,
+  label,
+  maxLength = 80,
+  fieldLabel = "Nombre de la sesión",
+  className,
+}: Props) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(value);
   const [failed, setFailed] = useState(false);
@@ -69,7 +78,7 @@ export function InlineName({ value, onSave, label, maxLength = 80, className }: 
           className={styles.input}
           value={text}
           maxLength={maxLength}
-          aria-label="Nombre de la sesión"
+          aria-label={fieldLabel}
           aria-invalid={failed || undefined}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={keys}

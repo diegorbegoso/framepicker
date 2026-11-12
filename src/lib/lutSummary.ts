@@ -13,6 +13,10 @@ export function summarizeLuts(result: LutsAdded): string {
   }
   if (duplicates.length > 0) {
     parts.push(duplicates.length === 1 ? "1 ya estaba." : `${duplicates.length} ya estaban.`);
+    const renamed = duplicates.filter((d) => d.renamed).length;
+    if (renamed > 0) {
+      parts.push(renamed === 1 ? "1 se renombró." : `${renamed} se renombraron.`);
+    }
   }
   if (failed.length > 0) {
     const names = failed.map((f) => fileName(f.path));

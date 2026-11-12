@@ -70,3 +70,77 @@
   color: var(--fg-muted);
   font-size: var(--text-xs);
 }
+
+.group {
+  display: grid;
+  gap: var(--space-1);
+  list-style: none;
+}
+
+.groupHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-block: var(--space-1);
+  border-bottom: 1px solid var(--divider);
+  font-weight: 600;
+}
+
+.groupName {
+  min-width: 0;
+}
+
+.fold {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.count {
+  margin-left: auto;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.scroll {
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.row {
+  list-style: none;
+}
+
+.move {
+  max-width: 140px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: var(--text-xs);
+}
+
+.starOn {
+  color: var(--primary);
+}
+
+.starOn svg {
+  fill: currentColor;
+}

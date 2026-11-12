@@ -250,7 +250,14 @@ export function exportSelection(
   );
 }
 
-export const LutInfo = z.object({ id: z.string(), name: z.string(), size: z.number() });
+export const LutInfo = z.object({
+  id: z.string(),
+  name: z.string(),
+  size: z.number(),
+  /** The sub-list it belongs to (the folder it came from), or none. */
+  group: z.string().nullable().default(null),
+  favorite: z.boolean().default(false),
+});
 export type LutInfo = z.infer<typeof LutInfo>;
 
 export async function listLuts(): Promise<LutInfo[]> {
@@ -260,7 +267,9 @@ export async function listLuts(): Promise<LutInfo[]> {
 export const LutsAdded = z.object({
   added: z.array(LutInfo),
   /** Files whose look was already in the library. */
-  duplicates: z.array(z.object({ path: z.string(), name: z.string() })),
+  duplicates: z.array(
+    z.object({ path: z.string(), name: z.string(), renamed: z.boolean().default(false) }),
+  ),
   failed: z.array(z.object({ path: z.string(), message: z.string() })),
 });
 export type LutsAdded = z.infer<typeof LutsAdded>;
@@ -273,6 +282,26 @@ export function addLuts(paths: string[]) {
 /** Copies every `.cube` file of a folder (picked with `pickFolder`). */
 export function addLutFolder(path: string) {
   return engineRequest("luts_add_folder", { path }, LutsAdded);
+}
+
+export type LutChanges = { name?: string; group?: string | null; favorite?: boolean };
+
+/** Renames a LUT, moves it to another group (null: none) or marks it as a favourite. */
+export async function updateLut(lutId: string, changes: LutChanges): Promise<LutInfo> {
+  const reply = await engineRequest(
+    "luts_update",
+    { lut_id: lutId, ...changes },
+    z.object({ lut: LutInfo }),
+  );
+  return reply.lut;
+}
+
+export function renameLutGroup(from: string, to: string) {
+  return engineRequest("luts_group_rename", { from, to }, z.object({ moved: z.number() }));
+}
+
+export function removeLutGroup(group: string) {
+  return engineRequest("luts_group_remove", { group }, z.object({ removed: z.number() }));
 }
 
 export function removeLut(lutId: string) {

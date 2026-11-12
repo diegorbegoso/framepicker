@@ -37,7 +37,9 @@ beforeEach(() => {
   });
   mocked.getSettings.mockRejectedValue(new Error("no stored options"));
   mocked.setSetting.mockImplementation(async (key, value) => ({ key, value }));
-  mocked.listLuts.mockResolvedValue([{ id: "l1", name: "Cálido", size: 33 }]);
+  mocked.listLuts.mockResolvedValue([
+    { id: "l1", name: "Cálido", size: 33, group: null, favorite: false },
+  ]);
 });
 
 const ids = (n: number) => Array.from({ length: n }, (_, i) => `p${i}`);

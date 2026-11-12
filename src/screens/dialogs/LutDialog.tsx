@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/Button.tsx";
 import { Dialog } from "../../components/Dialog.tsx";
-import { IconButton } from "../../components/IconButton.tsx";
 import * as engine from "../../lib/engine.ts";
 import { summarizeLuts } from "../../lib/lutSummary.ts";
 import styles from "./LutDialog.module.css";
+import { LutGroup } from "./LutGroup.tsx";
+import { LutRow } from "./LutRow.tsx";
 
 type Props = {
   /** Called after a LUT is added or removed, so the rest of the screen reads the library again. */
@@ -12,7 +13,9 @@ type Props = {
   onClose: () => void;
 };
 
-const byName = (a: engine.LutInfo, b: engine.LutInfo) =>
+/** Favourites first, then by name. */
+const order = (a: engine.LutInfo, b: engine.LutInfo) =>
+  Number(b.favorite) - Number(a.favorite) ||
   a.name.localeCompare(b.name, "es", { sensitivity: "base" });
 
 /** The LUTs kept in the program: load them once and they stay for every photo and every session. */
@@ -66,6 +69,54 @@ export function LutDialog({ onChanged, onClose }: Props) {
       return folder === null ? null : engine.addLutFolder(folder);
     });
 
+  const { loose, groups } = useMemo(() => {
+    const map = new Map<string, engine.LutInfo[]>();
+    const rest: engine.LutInfo[] = [];
+    for (const lut of luts) {
+      if (lut.group === null) rest.push(lut);
+      else map.set(lut.group, [...(map.get(lut.group) ?? []), lut]);
+    }
+    return {
+      loose: rest.sort(order),
+      groups: [...map.entries()]
+        .sort(([a], [b]) => a.localeCompare(b, "es", { sensitivity: "base" }))
+        .map(([name, items]) => ({ name, items: items.sort(order) })),
+    };
+  }, [luts]);
+
+  async function change(lut: engine.LutInfo, changes: engine.LutChanges) {
+    try {
+      const saved = await engine.updateLut(lut.id, changes);
+      setLuts((all) => all.map((item) => (item.id === saved.id ? saved : item)));
+      onChanged();
+    } catch (failure) {
+      setError("No se pudo guardar el cambio.");
+      throw failure;
+    }
+  }
+
+  async function renameGroup(from: string, to: string) {
+    try {
+      await engine.renameLutGroup(from, to);
+      await refresh();
+      onChanged();
+    } catch (failure) {
+      setError("No se pudo renombrar el grupo.");
+      throw failure;
+    }
+  }
+
+  async function removeGroup(group: string) {
+    try {
+      const { removed } = await engine.removeLutGroup(group);
+      await refresh();
+      onChanged();
+      setStatus(`Se quitó el grupo ${group} (${removed} LUT).`);
+    } catch {
+      setError("No se pudo quitar el grupo.");
+    }
+  }
+
   async function remove(lut: engine.LutInfo) {
     try {
       await engine.removeLut(lut.id);
@@ -92,17 +143,37 @@ export function LutDialog({ onChanged, onClose }: Props) {
         </Button>
       </div>
       <p className={styles.hint}>
-        Puedes elegir varios archivos .cube a la vez, o una carpeta entera.
+        Puedes elegir varios archivos .cube a la vez, o una carpeta entera: queda como un grupo con
+        el nombre de la carpeta.
       </p>
-      <ul className={styles.list} aria-label="LUT guardados">
-        {[...luts].sort(byName).map((lut) => (
-          <li key={lut.id} className={styles.row}>
-            <span className={styles.name}>{lut.name}</span>
-            <span className={styles.size}>
-              {lut.size}×{lut.size}×{lut.size}
-            </span>
-            <IconButton icon="x" label={`Quitar ${lut.name}`} onClick={() => void remove(lut)} />
-          </li>
+      <ul className={`${styles.list} ${styles.scroll}`} aria-label="LUT guardados">
+        {loose.map((lut) => (
+          <LutRow
+            key={lut.id}
+            lut={lut}
+            groups={groups.map((g) => g.name)}
+            onChange={change}
+            onRemove={(item) => void remove(item)}
+          />
+        ))}
+        {groups.map((group) => (
+          <LutGroup
+            key={group.name}
+            name={group.name}
+            count={group.items.length}
+            onRename={(to) => renameGroup(group.name, to)}
+            onRemove={() => removeGroup(group.name)}
+          >
+            {group.items.map((lut) => (
+              <LutRow
+                key={lut.id}
+                lut={lut}
+                groups={groups.map((g) => g.name)}
+                onChange={change}
+                onRemove={(item) => void remove(item)}
+              />
+            ))}
+          </LutGroup>
         ))}
       </ul>
       {luts.length === 0 ? <p className={styles.empty}>Aún no has cargado ningún LUT.</p> : null}

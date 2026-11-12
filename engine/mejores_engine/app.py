@@ -19,6 +19,7 @@ from mejores_engine import (
     features,
     grouping,
     luts_library,
+    luts_rpc,
     organize,
     preview_api,
     scoring,
@@ -75,7 +76,7 @@ def build_dispatcher(
     exports = export.Exports(store, sink)
     autofixes = autofix.AutoFixes(store, sink)
     library = luts_library.LutLibrary(store)
-    luts_library.register(dispatcher, library, roots)
+    luts_rpc.register(dispatcher, library, roots)
 
     @dispatcher.register("analyze")
     def analyze(params: dict[str, Any]) -> dict[str, Any]:

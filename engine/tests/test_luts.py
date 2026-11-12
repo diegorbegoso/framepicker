@@ -103,7 +103,7 @@ def test_the_library_keeps_a_lut_between_runs(tmp_path: Path) -> None:
     first = build_dispatcher(lambda: Store(data))
     assert call(first, "grant_roots", {"roots": [str(source)]})["result"]["granted"] == 1
     added = call(first, "luts_add", {"path": str(source)})["result"]
-    assert (added["name"], added["size"]) == ("Cálido", 3)
+    assert (added["name"], added["size"]) == ("Mi Look", 3)
 
     second = build_dispatcher(lambda: Store(data))  # a new run of the program
     listed = call(second, "luts_list", {})["result"]["luts"]
