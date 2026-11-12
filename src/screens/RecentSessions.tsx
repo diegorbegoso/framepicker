@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../components/Button.tsx";
 import { Dialog } from "../components/Dialog.tsx";
-import { InlineName } from "../components/InlineName.tsx";
 import {
   EngineError,
   type SelectResult,
@@ -11,7 +10,7 @@ import {
   sessionRename,
   sessionsList,
 } from "../lib/engine.ts";
-import { relativeTime } from "../lib/relativeTime.ts";
+import { SessionCard } from "./home/SessionCard.tsx";
 import styles from "./RecentSessions.module.css";
 
 type Props = {
@@ -19,12 +18,12 @@ type Props = {
   onOpen: (sessionId: string, result: SelectResult) => void;
   /** Disabled while something else is being prepared. */
   disabled: boolean;
+  /** Told whenever the list is read, so the Home can show the covers. */
+  onSessions?: (sessions: SessionSummary[]) => void;
 };
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
 /** The work already begun, so leaving a review (or the app) never means starting again. */
-export function RecentSessions({ onOpen, disabled }: Props) {
+export function RecentSessions({ onOpen, disabled, onSessions }: Props) {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [asking, setAsking] = useState<SessionSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,9 +33,12 @@ export function RecentSessions({ onOpen, disabled }: Props) {
 
   const refresh = useCallback(() => {
     sessionsList()
-      .then(setSessions)
+      .then((found) => {
+        setSessions(found);
+        onSessions?.(found);
+      })
       .catch(() => undefined);
-  }, []);
+  }, [onSessions]);
 
   useEffect(refresh, [refresh]);
 
@@ -79,57 +81,19 @@ export function RecentSessions({ onOpen, disabled }: Props) {
         Continuar donde lo dejaste
       </h2>
       <ul className={styles.list}>
-        {sessions.map((session) => (
-          <li key={session.id} className={styles.card}>
-            <div className={styles.text}>
-              <InlineName
-                value={session.label}
-                label={`Cambiar el nombre de ${session.label}`}
-                onSave={(name) => rename(session, name)}
-                className={styles.name}
-              />
-              <span className={styles.folder} title={session.folder}>
-                {session.folder}
-              </span>
-              <span className={styles.stats}>
-                {plural(session.photos, "foto", "fotos")} ·{" "}
-                {plural(session.picked, "elegida", "elegidas")} · {session.reviewed} de{" "}
-                {session.bursts} ráfagas revisadas
-                {session.edited > 0
-                  ? ` · ${plural(session.edited, "corregida", "corregidas")}`
-                  : ""}
-              </span>
-              <span className={styles.when}>{relativeTime(session.updated_at)}</span>
-              {session.available ? null : (
-                <span role="note" className={styles.missing}>
-                  No encuentro estas fotos: puede que las hayas movido.
-                </span>
-              )}
-            </div>
-            <div className={styles.actions}>
-              <Button
-                variant="primary"
-                size="sm"
-                aria-label={`Continuar ${session.label}`}
-                disabled={disabled || !session.available || opening !== null}
-                onClick={() => void open(session)}
-              >
-                Continuar
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                aria-label={`Quitar ${session.label}`}
-                disabled={opening !== null}
-                onClick={() => {
-                  setForgetError(null);
-                  setAsking(session);
-                }}
-              >
-                Quitar
-              </Button>
-            </div>
-          </li>
+        {sessions.map((session, index) => (
+          <SessionCard
+            key={session.id}
+            session={session}
+            index={index}
+            disabled={disabled || opening !== null}
+            onOpen={() => void open(session)}
+            onRename={(name) => rename(session, name)}
+            onForget={() => {
+              setForgetError(null);
+              setAsking(session);
+            }}
+          />
         ))}
       </ul>
       {error ? (

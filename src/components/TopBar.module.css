@@ -19,3 +19,13 @@
   color: var(--primary-fg);
   box-shadow: var(--shadow-1);
 }
+
+.floating {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 2;
+  border-bottom: 0;
+  background: transparent;
+}

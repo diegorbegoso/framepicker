@@ -200,3 +200,18 @@ def test_the_database_waits_for_a_busy_writer_instead_of_failing_quickly(tmp_pat
     with store.session() as conn:
         timeout = conn.execute("PRAGMA busy_timeout").fetchone()[0]
     assert timeout >= 30000
+
+
+def test_each_session_lists_up_to_three_photos_to_use_as_its_cover(tmp_path: Path) -> None:
+    day = Day(tmp_path / "data")
+    session = day.open(make_folder(tmp_path, "fiesta", count=6))
+    entry = next(s for s in day.ok("sessions_list", {})["sessions"] if s["id"] == session)
+    covers = entry["covers"]
+    assert 1 <= len(covers) <= 3
+    assert len(set(covers)) == len(covers)
+    with Store(day.data).session() as conn:
+        known = {
+            str(r["id"])
+            for r in conn.execute("SELECT id FROM photos WHERE session_id = ?", (session,))
+        }
+    assert set(covers) <= known

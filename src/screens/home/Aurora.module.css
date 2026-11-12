@@ -1,0 +1,64 @@
+.root {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.blob {
+  position: absolute;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 50%;
+  will-change: transform;
+  animation: drift 42s ease-in-out infinite alternate;
+}
+
+.one {
+  top: -22vmax;
+  left: -14vmax;
+  background: radial-gradient(circle at center, var(--aurora-1), transparent 62%);
+}
+
+.two {
+  top: 8vmax;
+  right: -22vmax;
+  background: radial-gradient(circle at center, var(--aurora-2), transparent 62%);
+  animation-duration: 55s;
+  animation-direction: alternate-reverse;
+}
+
+.three {
+  bottom: -30vmax;
+  left: 18vmax;
+  background: radial-gradient(circle at center, var(--aurora-3), transparent 62%);
+  animation-duration: 48s;
+}
+
+.dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(var(--dots) 1px, transparent 1.2px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse at 30% 20%, black 0%, transparent 72%);
+}
+
+.root[data-paused="true"] .blob {
+  animation-play-state: paused;
+}
+
+@keyframes drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(7vmax, 5vmax, 0) scale(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blob {
+    animation: none;
+  }
+}

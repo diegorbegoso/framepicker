@@ -512,6 +512,8 @@ export const SessionSummary = z.object({
   last_burst_id: z.string().nullable(),
   /** False when the photos are no longer where they were. */
   available: z.boolean(),
+  /** Up to three photos to show on the session's card. */
+  covers: z.array(z.string()).default([]),
 });
 export type SessionSummary = z.infer<typeof SessionSummary>;
 

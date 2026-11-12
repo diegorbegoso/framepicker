@@ -1,4 +1,4 @@
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   analyze,
   cancel,
@@ -9,9 +9,16 @@ import {
   pickFiles,
   pickFolder,
   type SelectResult,
+  type SessionSummary,
   scan,
   select,
 } from "../lib/engine.ts";
+import styles from "./HomeScreen.module.css";
+import { AnalyzingPanel } from "./home/AnalyzingPanel.tsx";
+import { Aurora } from "./home/Aurora.tsx";
+import { ContactSheet } from "./home/ContactSheet.tsx";
+import { Hero } from "./home/Hero.tsx";
+import { StepsRibbon } from "./home/StepsRibbon.tsx";
 import { RecentSessions } from "./RecentSessions.tsx";
 
 type Props = {
@@ -25,36 +32,13 @@ const NO_PHOTOS = "No encontré fotos compatibles en esa selección.";
 const FAILED = "No se pudo analizar la selección.";
 const RESUMED = "Recuperé tu avance de estas fotos.";
 
-const card: CSSProperties = {
-  background: "var(--surface)",
-  border: "1px solid var(--divider)",
-  borderRadius: "var(--radius-card)",
-  padding: "var(--space-6)",
-  display: "grid",
-  gap: "var(--space-4)",
-  maxWidth: "640px",
-};
-const row: CSSProperties = { display: "flex", gap: "var(--space-3)", flexWrap: "wrap" };
-const alertStyle: CSSProperties = { color: "var(--destructive)", margin: 0, fontWeight: 600 };
-
-export function button(primary: boolean): CSSProperties {
-  return {
-    font: "inherit",
-    padding: "var(--space-2) var(--space-4)",
-    borderRadius: "var(--radius-control)",
-    border: `1px solid ${primary ? "var(--primary)" : "var(--border)"}`,
-    background: primary ? "var(--primary)" : "var(--surface)",
-    color: primary ? "var(--primary-fg)" : "var(--fg)",
-    cursor: "pointer",
-  };
-}
-
 export function HomeScreen({ onResult }: Props) {
   const [running, setRunning] = useState<Running | null>(null);
   const [error, setError] = useState<string | null>(null);
   // True from the click until the selection is scanned: the first answer can take a while when the
   // engine is still starting, and the buttons must not invite a second click meanwhile.
   const [preparing, setPreparing] = useState(false);
+  const [covers, setCovers] = useState<string[]>([]);
   const runningRef = useRef<Running | null>(null);
   const finishedEarly = useRef(new Map<string, string>());
 
@@ -152,72 +136,61 @@ export function HomeScreen({ onResult }: Props) {
     }
   }
 
-  const label = running ? `Analizando ${running.done} de ${running.total} fotos` : "";
+  // The photos on the contact sheet come after the first paint, so they never delay the start.
+  const showCovers = useCallback((sessions: SessionSummary[]) => {
+    const wanted = sessions.slice(0, 3).flatMap((session) => session.covers);
+    window.setTimeout(() => setCovers(wanted), 500);
+  }, []);
 
   return (
-    <>
-      <section aria-labelledby="home-title" style={card}>
-        <h2 id="home-title" style={{ margin: 0 }}>
-          Elige tus fotos
-        </h2>
-        <p style={{ margin: 0, color: "var(--fg-muted)" }}>
-          Selecciona las mejores tomas de tus ráfagas, sin salir de tu equipo.
-        </p>
-        {running ? (
-          <div style={{ display: "grid", gap: "var(--space-2)" }}>
-            <span id="progress-label">{label}</span>
-            <progress
-              aria-labelledby="progress-label"
-              aria-valuenow={running.done}
-              aria-valuemin={0}
-              aria-valuemax={running.total}
-              value={running.done}
-              max={Math.max(running.total, 1)}
-              style={{ width: "100%", accentColor: "var(--primary)" }}
-            />
-            <div style={row}>
-              <button
-                type="button"
-                style={button(false)}
-                disabled={running.jobId === null}
-                onClick={() => running.jobId && void cancel(running.jobId).catch(() => undefined)}
-              >
-                Cancelar
-              </button>
-            </div>
+    <div className={styles.root}>
+      <Aurora />
+      <div className={styles.content}>
+        <section aria-labelledby="home-title" className={styles.hero}>
+          <div className={styles.copy}>
+            {running ? (
+              <>
+                <h2 id="home-title" className={styles.busyTitle}>
+                  Estamos revisando tus fotos
+                </h2>
+                <AnalyzingPanel
+                  done={running.done}
+                  total={running.total}
+                  canCancel={running.jobId !== null}
+                  onCancel={() =>
+                    running.jobId && void cancel(running.jobId).catch(() => undefined)
+                  }
+                />
+              </>
+            ) : (
+              <Hero
+                disabled={preparing}
+                onFolder={() => void start("folder")}
+                onFiles={() => void start("files")}
+              />
+            )}
+            {preparing && !running && (
+              <p role="status" className={styles.note}>
+                Preparando tu selección…
+              </p>
+            )}
+            {error && (
+              <p role="alert" className={styles.alert}>
+                {error}
+              </p>
+            )}
+            <StepsRibbon />
           </div>
-        ) : (
-          <div style={row}>
-            <button
-              type="button"
-              style={button(true)}
-              disabled={preparing}
-              onClick={() => void start("folder")}
-            >
-              Elegir carpeta
-            </button>
-            <button
-              type="button"
-              style={button(false)}
-              disabled={preparing}
-              onClick={() => void start("files")}
-            >
-              Elegir archivos
-            </button>
+          <div className={styles.sheet}>
+            <ContactSheet photos={covers} />
           </div>
-        )}
-        {preparing && !running && (
-          <p role="status" style={{ margin: 0, color: "var(--fg-muted)" }}>
-            Preparando tu selección…
-          </p>
-        )}
-        {error && (
-          <p role="alert" style={alertStyle}>
-            {error}
-          </p>
-        )}
-      </section>
-      <RecentSessions onOpen={onResult} disabled={preparing || running !== null} />
-    </>
+        </section>
+        <RecentSessions
+          onOpen={onResult}
+          disabled={preparing || running !== null}
+          onSessions={showCovers}
+        />
+      </div>
+    </div>
   );
 }

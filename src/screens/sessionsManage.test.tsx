@@ -39,6 +39,7 @@ const SESSION: engine.SessionSummary = {
   updated_at: new Date().toISOString(),
   last_burst_id: null,
   available: true,
+  covers: [],
 };
 
 beforeEach(() => {

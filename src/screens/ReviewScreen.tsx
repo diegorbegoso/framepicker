@@ -62,7 +62,6 @@ export function ReviewScreen({
   const [marked, setMarked] = useState<ReadonlySet<string>>(new Set());
   const [gridFocus, setGridFocus] = useState<string | undefined>();
   const [exportRequest, setExportRequest] = useState<ExportRequest | null>(null);
-
   const edits = useEdits(sessionId, setError);
   const { luts, refresh: refreshLuts } = useLuts();
   const { setPick } = usePicks(setBursts, setError, setAnnouncement);

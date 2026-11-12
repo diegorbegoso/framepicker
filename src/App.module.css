@@ -18,9 +18,3 @@
 .full {
   overflow: clip;
 }
-
-.page {
-  max-width: var(--content-max);
-  margin: 0 auto;
-  padding: var(--space-5);
-}

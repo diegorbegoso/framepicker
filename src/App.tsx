@@ -48,13 +48,11 @@ export function App() {
         </main>
       ) : (
         <>
-          <TopBar theme={theme} onThemeChange={setTheme} />
+          <TopBar theme={theme} onThemeChange={setTheme} floating />
           <main className={styles.main}>
-            <div className={styles.page}>
-              <HomeScreen
-                onResult={(sessionId, result, notice) => setReview({ sessionId, result, notice })}
-              />
-            </div>
+            <HomeScreen
+              onResult={(sessionId, result, notice) => setReview({ sessionId, result, notice })}
+            />
           </main>
         </>
       )}

@@ -57,6 +57,18 @@
   --shadow-3: 0 12px 32px rgb(15 23 42 / 14%), 0 2px 6px rgb(15 23 42 / 8%);
   --overlay: rgb(15 23 42 / 40%);
 
+  /* Home: lights drifting behind the content, a fine dot grid, frosted cards */
+  --aurora-1: rgb(70 110 255 / 24%);
+  --aurora-2: rgb(165 110 255 / 20%);
+  --aurora-3: rgb(255 160 110 / 22%);
+  --dots: rgb(15 23 42 / 9%);
+  --glass: rgb(255 255 255 / 70%);
+  --glass-border: rgb(15 23 42 / 8%);
+  --primary-tint: rgb(255 255 255 / 18%);
+  --frame-a: #cfdcff;
+  --frame-b: #f2d9ff;
+  --frame-c: #ffe3d0;
+
   /* Type */
   --font-ui: "Inter Variable", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Cascadia Mono", Consolas, monospace;
@@ -104,6 +116,17 @@
   --fg-muted: #9aa4b2;
   --border: #5b6577;
   --divider: #262d38;
+
+  --aurora-1: rgb(60 100 255 / 40%);
+  --aurora-2: rgb(150 80 255 / 32%);
+  --aurora-3: rgb(30 190 190 / 26%);
+  --dots: rgb(255 255 255 / 8%);
+  --glass: rgb(22 27 34 / 66%);
+  --glass-border: rgb(255 255 255 / 10%);
+  --primary-tint: rgb(8 16 31 / 14%);
+  --frame-a: #1d2a52;
+  --frame-b: #33204f;
+  --frame-c: #4a2f2a;
 
   --primary: #7da2ff;
   --primary-fg: #08101f;

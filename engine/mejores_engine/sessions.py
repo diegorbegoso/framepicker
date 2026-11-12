@@ -104,6 +104,7 @@ def recent(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     result = []
     for row in rows:
         first = Path(str(row["first_path"])) if row["first_path"] else None
+        covers = cover_photos(conn, str(row["id"]))
         result.append(
             {
                 "id": str(row["id"]),
@@ -117,9 +118,28 @@ def recent(conn: sqlite3.Connection) -> list[dict[str, Any]]:
                 "updated_at": str(row["seen"]),
                 "last_burst_id": row["last_burst_id"],
                 "available": bool(first and first.exists()),
+                "covers": covers,
             }
         )
     return result
+
+
+COVERS = 3
+
+
+def cover_photos(conn: sqlite3.Connection, session_id: str) -> list[str]:
+    """Up to three photos to show on the session's card: the chosen ones, first bursts first."""
+    rows = conn.execute(
+        "SELECT x.photo_id FROM selections x JOIN bursts b ON b.id = x.burst_id "
+        "WHERE b.session_id = ? AND x.selected = 1 ORDER BY b.position, x.photo_id LIMIT ?",
+        (session_id, COVERS),
+    ).fetchall()
+    if not rows:
+        rows = conn.execute(
+            "SELECT id AS photo_id FROM photos WHERE session_id = ? ORDER BY path LIMIT ?",
+            (session_id, COVERS),
+        ).fetchall()
+    return [str(r["photo_id"]) for r in rows]
 
 
 MAX_LABEL = 80
