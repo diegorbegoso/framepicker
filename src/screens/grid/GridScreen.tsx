@@ -13,6 +13,8 @@ import { useGridKeys } from "./useGridKeys.ts";
 import { ViewerModal } from "./ViewerModal.tsx";
 
 type Props = {
+  sessionId: string;
+  onError: (message: string | null) => void;
   bursts: SelectedBurst[];
   /** False while another screen or mode is on top: the keyboard is then left alone. */
   active: boolean;
@@ -31,6 +33,8 @@ const GAP = 8;
 
 /** Every photo at once. Pick or drop any of them; the sidebar shows the one you are on. */
 export function GridScreen({
+  sessionId,
+  onError,
   bursts,
   active,
   marked,
@@ -214,6 +218,8 @@ export function GridScreen({
           onOpenInBurst={() => current && onOpenInBurst(current.burstId, current.photo.id)}
         />
         <CorrectionsPanel
+          sessionId={sessionId}
+          onError={onError}
           photo={current?.photo}
           bursts={bursts}
           marked={marked}

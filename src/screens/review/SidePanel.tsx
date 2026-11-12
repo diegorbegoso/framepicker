@@ -34,6 +34,8 @@ export function SidePanel({
   return (
     <aside aria-label="Panel de la ráfaga" className={styles.side}>
       <CorrectionsPanel
+        sessionId={sessionId}
+        onError={onError}
         photo={photo}
         bursts={bursts}
         marked={marked}

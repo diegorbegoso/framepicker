@@ -218,6 +218,8 @@ export function ReviewScreen({
       </div>
       {mode === "grid" ? (
         <GridScreen
+          sessionId={sessionId}
+          onError={setError}
           bursts={bursts}
           active={active && !busy}
           marked={marked}

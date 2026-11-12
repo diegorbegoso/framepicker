@@ -1,30 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/Button.tsx";
-import { NumberField } from "../../components/NumberField.tsx";
 import { Panel } from "../../components/Panel.tsx";
 import type { Adjustments, LutInfo, SelectedBurst, SelectedPhoto } from "../../lib/engine.ts";
 import { isNeutral } from "../../lib/engine.ts";
 import { livePreview } from "../../lib/livePreview.ts";
 import { previews } from "../../lib/previews.ts";
+import { AutoGroup, AutoTop } from "./AutoCorrect.tsx";
 import styles from "./CorrectionsPanel.module.css";
+import { ManualControls } from "./ManualControls.tsx";
 import { buildScopes, SCOPE_ORDER, type Scope, scopeText } from "./scopes.ts";
+import { useAutofix } from "./useAutofix.ts";
 import type { Edits } from "./useEdits.ts";
-
-type Slider = { key: Exclude<keyof Adjustments, "lut_id" | "lut_strength">; label: string };
-
-const SLIDERS: Slider[] = [
-  { key: "exposure", label: "Exposición" },
-  { key: "contrast", label: "Contraste" },
-  { key: "highlights", label: "Luces" },
-  { key: "shadows", label: "Sombras" },
-  { key: "temperature", label: "Temperatura" },
-  { key: "tint", label: "Tinte" },
-  { key: "saturation", label: "Saturación" },
-];
 
 const SAVE_DELAY_MS = 250;
 
 type Props = {
+  sessionId: string;
+  /** Said when a correction could not be saved or calculated. */
+  onError: (message: string | null) => void;
   photo: SelectedPhoto | undefined;
   bursts: SelectedBurst[];
   marked: ReadonlySet<string>;
@@ -37,7 +30,16 @@ type Props = {
  * Basic corrections for the photo on screen, saved as you drag. The same corrections can be copied
  * to a group of photos, and any group can be exported from here.
  */
-export function CorrectionsPanel({ photo, bursts, marked, edits, luts, onExport }: Props) {
+export function CorrectionsPanel({
+  sessionId,
+  onError,
+  photo,
+  bursts,
+  marked,
+  edits,
+  luts,
+  onExport,
+}: Props) {
   const photoId = photo?.id;
   const stored = edits.of(photoId);
   const [draft, setDraft] = useState<{ id: string; value: Adjustments } | null>(null);
@@ -97,83 +99,28 @@ export function CorrectionsPanel({ photo, bursts, marked, edits, luts, onExport 
     for (const id of ids) livePreview.clear(id);
   }
 
-  const known = luts.some((lut) => lut.id === current.lut_id);
+  const auto = useAutofix(sessionId, edits, onError);
+
+  /** The program's suggestion for this photo, shown and saved like a move of the sliders. */
+  async function autoCurrent() {
+    if (!photoId) return;
+    const found = await auto.suggestFor(photoId);
+    if (!found) return;
+    auto.remember([photoId]);
+    const { lut_id: _lut, lut_strength: _strength, ...sliders } = found;
+    change(sliders); // the LUT the photo already has stays as it was
+  }
+
   return (
     <Panel title="Corrección básica" icon="sliders">
-      {SLIDERS.map(({ key, label }) => {
-        // Exposure is in stops; the rest are shown from -100 to 100, like the sliders of an editor.
-        const scale = key === "exposure" ? 1 : 100;
-        return (
-          <div key={key} className={styles.slider}>
-            <span className={styles.row}>
-              {label}
-              <NumberField
-                label={`${label} (valor)`}
-                value={current[key] * scale}
-                min={(key === "exposure" ? -2 : -1) * scale}
-                max={(key === "exposure" ? 2 : 1) * scale}
-                step={key === "exposure" ? 0.1 : 1}
-                unit={key === "exposure" ? "EV" : undefined}
-                disabled={!photo}
-                onChange={(next) => change({ [key]: next / scale })}
-              />
-            </span>
-            <input
-              type="range"
-              aria-label={label}
-              min={key === "exposure" ? -2 : -1}
-              max={key === "exposure" ? 2 : 1}
-              step={key === "exposure" ? 0.05 : 0.01}
-              value={current[key]}
-              disabled={!photo}
-              onChange={(event) => change({ [key]: Number(event.target.value) })}
-              onDoubleClick={() => change({ [key]: 0 })}
-            />
-          </div>
-        );
-      })}
-
-      <label className={styles.field}>
-        LUT
-        <select
-          value={current.lut_id ?? ""}
-          disabled={!photo}
-          onChange={(event) => change({ lut_id: event.target.value || null })}
-        >
-          <option value="">Sin LUT</option>
-          {current.lut_id && !known ? <option value={current.lut_id}>(LUT quitado)</option> : null}
-          {luts.map((lut) => (
-            <option key={lut.id} value={lut.id}>
-              {lut.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      {current.lut_id ? (
-        <div className={styles.slider}>
-          <span className={styles.row}>
-            Intensidad del LUT
-            <NumberField
-              label="Intensidad del LUT (valor)"
-              value={current.lut_strength * 100}
-              min={0}
-              max={100}
-              step={1}
-              unit="%"
-              onChange={(next) => change({ lut_strength: next / 100 })}
-            />
-          </span>
-          <input
-            type="range"
-            aria-label="Intensidad del LUT"
-            min={0}
-            max={1}
-            step={0.01}
-            value={current.lut_strength}
-            onChange={(event) => change({ lut_strength: Number(event.target.value) })}
-          />
-        </div>
-      ) : null}
+      <AutoTop
+        whiteBalance={auto.whiteBalance}
+        onWhiteBalance={auto.setWhiteBalance}
+        disabled={!photo}
+        busy={auto.running !== null}
+        onAuto={() => void autoCurrent()}
+      />
+      <ManualControls current={current} disabled={!photo} luts={luts} onChange={change} />
 
       <Button
         size="sm"
@@ -211,6 +158,18 @@ export function CorrectionsPanel({ photo, bursts, marked, edits, luts, onExport 
             Quitar correcciones
           </Button>
         </div>
+        <AutoGroup
+          count={scopes[scope].length}
+          running={auto.running}
+          message={auto.message}
+          canUndo={auto.canUndo}
+          onRun={() => {
+            flush();
+            void auto.runGroup(scopes[scope]);
+          }}
+          onCancel={auto.cancel}
+          onUndo={() => void auto.undo()}
+        />
         <Button
           icon="download"
           disabled={scopes[scope].length === 0}

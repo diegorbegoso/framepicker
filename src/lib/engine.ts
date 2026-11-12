@@ -342,6 +342,30 @@ export function setEdits(sessionId: string, photoIds: string[], adjustments: Adj
   );
 }
 
+/** Gives each photo its own corrections (or none, with `null`): how an undo puts many back. */
+export function putEdits(sessionId: string, entries: Record<string, Adjustments | null>) {
+  return engineRequest("edits_put", { session_id: sessionId, entries }, EditsSaved);
+}
+
+/** The corrections the program suggests for one photo, without saving them. */
+export async function autofixSuggest(photoId: string, whiteBalance: boolean): Promise<Adjustments> {
+  const reply = await engineRequest(
+    "autofix_suggest",
+    { photo_id: photoId, white_balance: whiteBalance },
+    z.object({ adjustments: Adjustments }),
+  );
+  return reply.adjustments;
+}
+
+/** Corrects a group in the background, one correction per burst; progress arrives as events. */
+export function autofixRun(sessionId: string, photoIds: string[], whiteBalance: boolean) {
+  return engineRequest(
+    "autofix_run",
+    { session_id: sessionId, photo_ids: photoIds, white_balance: whiteBalance },
+    JobRef,
+  );
+}
+
 export function resetEdits(sessionId: string, photoIds: string[]) {
   return engineRequest("edits_reset", { session_id: sessionId, photo_ids: photoIds }, EditsSaved);
 }
@@ -429,6 +453,8 @@ const JobDoneEvent = z.object({
     computed: z.number().optional(),
     cached: z.number().optional(),
     copied: z.number().optional(),
+    // autofix reports how many photos it corrected.
+    fixed: z.number().optional(),
   }),
 });
 export const EngineEvent = z.discriminatedUnion("method", [ProgressEvent, JobDoneEvent]);

@@ -10,6 +10,12 @@ export type Edits = {
   /** Stores the same corrections on those photos, showing them at once. */
   apply: (photoIds: string[], adjustments: Adjustments) => Promise<void>;
   reset: (photoIds: string[]) => Promise<void>;
+  /** Reads every photo's corrections again, e.g. after a job changed many of them. */
+  reload: () => Promise<void>;
+  /** What those photos have now (`null` for none), to be able to go back to it. */
+  snapshot: (photoIds: string[]) => Record<string, Adjustments | null>;
+  /** Gives each photo its own corrections, or none. */
+  put: (entries: Record<string, Adjustments | null>) => Promise<void>;
 };
 
 /**
@@ -57,7 +63,43 @@ export function useEdits(sessionId: string, onError: (message: string | null) =>
     [sessionId, stored, onError],
   );
 
+  const reload = useCallback(async () => {
+    try {
+      setStored(await engine.getEdits(sessionId));
+    } catch {
+      onError("No se pudieron leer las correcciones.");
+    }
+  }, [sessionId, onError]);
+
+  const put = useCallback(
+    async (entries: Record<string, Adjustments | null>) => {
+      const before = stored;
+      const ids = Object.keys(entries);
+      setStored((base) => {
+        const copy = { ...base };
+        for (const [id, adjustments] of Object.entries(entries)) {
+          if (adjustments === null || isNeutral(adjustments)) delete copy[id];
+          else copy[id] = adjustments;
+        }
+        return copy;
+      });
+      previews.invalidate(ids);
+      try {
+        await engine.putEdits(sessionId, entries);
+        onError(null);
+      } catch {
+        setStored(before);
+        previews.invalidate(ids);
+        onError("No se pudieron guardar las correcciones.");
+      }
+    },
+    [sessionId, stored, onError],
+  );
+
   return {
+    reload,
+    put,
+    snapshot: (photoIds) => Object.fromEntries(photoIds.map((id) => [id, stored[id] ?? null])),
     of: (photoId) => (photoId ? (stored[photoId] ?? NEUTRAL) : NEUTRAL),
     edited: new Set(Object.keys(stored)),
     apply: (photoIds, adjustments) => change(photoIds, adjustments),
