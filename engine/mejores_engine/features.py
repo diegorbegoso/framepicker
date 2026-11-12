@@ -179,7 +179,9 @@ _SCALED_KEEP = 4
 _scaled_lock = threading.Lock()
 
 
-def _scaled(path: Path, fmt: str, max_px: int, develop: bool) -> tuple[NDArray[np.uint8], int, int]:
+def scaled_base(
+    path: Path, fmt: str, max_px: int, develop: bool
+) -> tuple[NDArray[np.uint8], int, int]:
     """The photo decoded and shrunk to `max_px`, with the size it had. Shared: do not modify it."""
     try:
         info = path.stat()
@@ -220,7 +222,7 @@ def preview_image(
 
     `develop` asks a RAW for a half-size demosaic instead of the camera's embedded preview.
     """
-    bgr, w, h = _scaled(path, fmt, max_px, develop)
+    bgr, w, h = scaled_base(path, fmt, max_px, develop)
     if adjustments is not None:
         bgr = adjust.apply(bgr, adjustments, lut)
     out_h, out_w = bgr.shape[:2]

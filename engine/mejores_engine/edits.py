@@ -35,6 +35,21 @@ def load_many(conn: sqlite3.Connection, photo_ids: list[str]) -> dict[str, Adjus
     return found
 
 
+def put(conn: sqlite3.Connection, entries: dict[str, Adjustments | None]) -> None:
+    """Set the corrections of many photos at once; `None` or all-neutral removes them."""
+    now = datetime.now(UTC).isoformat()
+    for photo_id, adjustments in entries.items():
+        if adjustments is None or adjustments.is_identity:
+            conn.execute("DELETE FROM photo_edits WHERE photo_id = ?", (photo_id,))
+            continue
+        conn.execute(
+            "INSERT INTO photo_edits (photo_id, params_json, updated_at) VALUES (?, ?, ?) "
+            "ON CONFLICT (photo_id) DO UPDATE SET params_json = excluded.params_json, "
+            "updated_at = excluded.updated_at",
+            (photo_id, json.dumps(adjustments.as_dict()), now),
+        )
+
+
 def load_session(conn: sqlite3.Connection, session_id: str) -> dict[str, dict[str, Any]]:
     rows = conn.execute(
         "SELECT e.photo_id, e.params_json FROM photo_edits e "
@@ -91,6 +106,22 @@ def register(dispatcher: Dispatcher, store: Callable[[], Store]) -> None:
                     (photo_id, json.dumps(clean), now),
                 )
         return {"photo_ids": ids, "adjustments": clean}
+
+    @dispatcher.register("edits_put")
+    def edits_put(params: dict[str, Any]) -> dict[str, Any]:
+        """Each photo gets its own corrections (or none): how an "undo" puts many photos back."""
+        raw = params.get("entries")
+        if not isinstance(raw, dict) or not raw or len(raw) > MAX_PHOTOS:
+            raise RpcError(INVALID_PARAMS, "entries must map photo ids to corrections or null")
+        entries = {
+            str(photo_id): None if value is None else adjust.parse(value)
+            for photo_id, value in raw.items()
+        }
+        with store().session() as conn:
+            session_id, _ids = _photo_ids(conn, {**params, "photo_ids": list(entries)})
+            sessions.touch(conn, session_id)
+            put(conn, entries)
+        return {"photo_ids": list(entries)}
 
     @dispatcher.register("edits_reset")
     def edits_reset(params: dict[str, Any]) -> dict[str, Any]:

@@ -12,6 +12,7 @@ from typing import Any
 
 from mejores_engine import (
     __version__,
+    autofix,
     edits,
     export,
     export_api,
@@ -74,6 +75,7 @@ def build_dispatcher(
     sink = emitter or NullEmitter()
     jobs = Jobs(store, sink, executor_factory, extractor)
     exports = export.Exports(store, sink)
+    autofixes = autofix.AutoFixes(store, sink)
     library = luts_library.LutLibrary(store)
     luts_library.register(dispatcher, library, roots)
 
@@ -88,18 +90,21 @@ def build_dispatcher(
     @dispatcher.register("cancel")
     def cancel(params: dict[str, Any]) -> dict[str, Any]:
         job_id = _string_param(params, "job_id")
-        return exports.cancel(job_id) if exports.find(job_id) else jobs.cancel(job_id)
+        if exports.find(job_id):
+            return exports.cancel(job_id)
+        return autofixes.cancel(job_id) if autofixes.find(job_id) else jobs.cancel(job_id)
 
     @dispatcher.register("job_status")
     def job_status(params: dict[str, Any]) -> dict[str, Any]:
         job_id = _string_param(params, "job_id")
-        found = exports.find(job_id)
+        found = exports.find(job_id) or autofixes.find(job_id)
         return found.status() if found else jobs.get(job_id).status()
 
     export_api.register(dispatcher, store, roots, exports, library)
     organize.register(dispatcher, store, roots)
     preview_api.register(dispatcher, store, library)
     edits.register(dispatcher, store)
+    autofix.register(dispatcher, store, autofixes)
     sessions.register(dispatcher, store)
 
     @dispatcher.register("selftest")
