@@ -4,6 +4,8 @@ import { IconButton } from "./IconButton.tsx";
 
 type Props = {
   title: string;
+  /** A roomier window, for work on a picture. */
+  wide?: boolean;
   onClose: () => void;
   children: ReactNode;
 };
@@ -11,7 +13,7 @@ type Props = {
 const FOCUSABLE = "button:not([disabled]), [href], input:not([disabled]), select, textarea";
 
 /** A window over the app: focus stays inside, Escape closes it, and focus goes back afterwards. */
-export function Dialog({ title, onClose, children }: Props) {
+export function Dialog({ title, wide = false, onClose, children }: Props) {
   const root = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const close = useRef(onClose);
@@ -54,7 +56,7 @@ export function Dialog({ title, onClose, children }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={styles.dialog}
+        className={wide ? `${styles.dialog} ${styles.wide}` : styles.dialog}
       >
         <header className={styles.header}>
           <h2 id={titleId} className={styles.title}>

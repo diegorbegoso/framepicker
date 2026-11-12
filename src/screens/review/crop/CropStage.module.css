@@ -1,0 +1,128 @@
+.stage {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+  margin: auto;
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background: var(--stage);
+  user-select: none;
+  touch-action: none;
+}
+
+.image {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  max-width: none;
+  object-fit: fill;
+  pointer-events: none;
+  transform-origin: center;
+}
+
+.canvas {
+  position: absolute;
+}
+
+.frame {
+  position: absolute;
+  box-shadow: 0 0 0 9999px var(--stage-hud);
+  outline: 2px solid var(--stage-accent);
+  cursor: move;
+}
+
+.frame:focus-visible {
+  outline: 3px solid var(--primary);
+}
+
+.thirds,
+.fine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image:
+    linear-gradient(var(--stage-accent), var(--stage-accent)),
+    linear-gradient(var(--stage-accent), var(--stage-accent)),
+    linear-gradient(var(--stage-accent), var(--stage-accent)),
+    linear-gradient(var(--stage-accent), var(--stage-accent));
+  background-repeat: no-repeat;
+  background-size:
+    1px 100%,
+    1px 100%,
+    100% 1px,
+    100% 1px;
+  background-position:
+    33.333% 0,
+    66.666% 0,
+    0 33.333%,
+    0 66.666%;
+}
+
+.fine {
+  opacity: 0.25;
+  background-image:
+    repeating-linear-gradient(90deg, var(--stage-accent) 0 1px, transparent 1px 12.5%),
+    repeating-linear-gradient(0deg, var(--stage-accent) 0 1px, transparent 1px 12.5%);
+  background-size: auto;
+  background-position: 0 0;
+}
+
+.handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border: 2px solid var(--surface);
+  border-radius: 3px;
+  background: var(--primary);
+}
+
+.nw {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.n {
+  top: 0;
+  left: 50%;
+  cursor: ns-resize;
+}
+
+.ne {
+  top: 0;
+  left: 100%;
+  cursor: nesw-resize;
+}
+
+.e {
+  top: 50%;
+  left: 100%;
+  cursor: ew-resize;
+}
+
+.se {
+  top: 100%;
+  left: 100%;
+  cursor: nwse-resize;
+}
+
+.s {
+  top: 100%;
+  left: 50%;
+  cursor: ns-resize;
+}
+
+.sw {
+  top: 100%;
+  left: 0;
+  cursor: nesw-resize;
+}
+
+.w {
+  top: 50%;
+  left: 0;
+  cursor: ew-resize;
+}

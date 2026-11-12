@@ -1,0 +1,100 @@
+.root {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.tab {
+  flex: 1;
+  min-height: 28px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.tab.on {
+  border-color: var(--primary);
+  color: var(--fg);
+  font-weight: 650;
+}
+
+.graph {
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: 260px;
+  justify-self: center;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.grid line,
+.diagonal {
+  stroke: var(--divider);
+  stroke-width: 1;
+}
+
+.diagonal {
+  stroke-dasharray: 3 4;
+}
+
+.line {
+  fill: none;
+  stroke: var(--fg);
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.line.r {
+  stroke: var(--curve-r);
+}
+
+.line.g {
+  stroke: var(--curve-g);
+}
+
+.line.b {
+  stroke: var(--curve-b);
+}
+
+.point {
+  fill: var(--surface);
+  stroke: var(--fg);
+  stroke-width: 2;
+  cursor: grab;
+}
+
+.point.r {
+  stroke: var(--curve-r);
+}
+
+.point.g {
+  stroke: var(--curve-g);
+}
+
+.point.b {
+  stroke: var(--curve-b);
+}
+
+.point:focus-visible {
+  outline: none;
+  stroke-width: 4;
+  stroke: var(--primary);
+}
+
+.hint {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}

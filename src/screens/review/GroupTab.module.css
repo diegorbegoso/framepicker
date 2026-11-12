@@ -1,0 +1,50 @@
+.tab {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.scope {
+  display: grid;
+  gap: var(--space-1);
+  font-weight: 650;
+  font-size: var(--text-sm);
+}
+
+.scope select {
+  min-width: 0;
+  height: 36px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+}
+
+.card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+
+.help {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}

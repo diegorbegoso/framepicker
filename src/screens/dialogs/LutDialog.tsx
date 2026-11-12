@@ -132,7 +132,7 @@ export function LutDialog({ onChanged, onClose }: Props) {
     <Dialog title="Biblioteca de LUT" onClose={onClose}>
       <p className={styles.help}>
         Un LUT cambia el color de las fotos, como un filtro. Se carga una sola vez y queda guardado
-        en el programa. Después lo eliges en «Corrección básica», para una foto o para un grupo.
+        en el programa. Después lo eliges en «Correcciones», para una foto o para un grupo.
       </p>
       <div className={styles.buttons}>
         <Button variant="primary" icon="sparkle" disabled={busy} onClick={() => void loadFiles()}>

@@ -78,7 +78,7 @@ function openReview() {
   return user;
 }
 
-const panel = () => screen.getByRole("region", { name: "Corrección básica" });
+const panel = () => screen.getByRole("region", { name: "Correcciones" });
 const progress = (done: number, total: number): EngineEvent => ({
   method: "progress",
   params: { job_id: "a1", kind: "autofix", done, total },
@@ -116,6 +116,7 @@ describe("automatic correction of the photo on screen", () => {
     mocked.getEdits.mockResolvedValue({ IMG_2: SAVED({ lut_id: "l1", lut_strength: 0.5 }) });
     const user = openReview();
     await waitFor(() => expect(mocked.getEdits).toHaveBeenCalled());
+    await user.click(within(panel()).getByRole("button", { name: /^LUT/ }));
     await within(panel()).findByRole("spinbutton", { name: "Intensidad del LUT (valor)" });
     await user.click(within(panel()).getByRole("button", { name: "Automático" }));
     await waitFor(() => expect(mocked.setEdits).toHaveBeenCalled());
@@ -138,6 +139,9 @@ describe("automatic correction of the photo on screen", () => {
 });
 
 describe("automatic correction of a group", () => {
+  const toGroup = (user: ReturnType<typeof userEvent.setup>) =>
+    user.click(within(panel()).getByRole("radio", { name: /^Varias fotos/ }));
+
   async function start(user: ReturnType<typeof userEvent.setup>) {
     await user.click(within(panel()).getByRole("button", { name: "Automático al grupo" }));
     await waitFor(() => expect(mocked.autofixRun).toHaveBeenCalled());
@@ -145,7 +149,8 @@ describe("automatic correction of a group", () => {
 
   it("runs on the chosen group and shows its progress", async () => {
     const user = openReview();
-    await user.selectOptions(within(panel()).getByLabelText("Aplicar a"), "Las elegidas (2)");
+    await toGroup(user);
+    await user.selectOptions(within(panel()).getByLabelText("¿A qué fotos?"), "Las elegidas (2)");
     await start(user);
     expect(mocked.autofixRun).toHaveBeenCalledWith("s1", ["IMG_2", "IMG_4"], false);
     act(() => emit(progress(1, 2)));
@@ -156,6 +161,7 @@ describe("automatic correction of a group", () => {
 
   it("uses white balance for the group when the box is ticked", async () => {
     const user = openReview();
+    await toGroup(user);
     await user.click(within(panel()).getByRole("checkbox", { name: "Balance de blancos" }));
     await start(user);
     expect(mocked.autofixRun).toHaveBeenCalledWith("s1", ["IMG_1", "IMG_2", "IMG_3"], true);
@@ -163,6 +169,7 @@ describe("automatic correction of a group", () => {
 
   it("reads the corrections back when it is done and says how many photos", async () => {
     const user = openReview();
+    await toGroup(user);
     await start(user);
     mocked.getEdits.mockResolvedValue({ IMG_1: FOUND, IMG_2: FOUND, IMG_3: FOUND });
     act(() => emit(done("done", 3)));
@@ -170,6 +177,7 @@ describe("automatic correction of a group", () => {
       await within(panel()).findByText("Corrección automática aplicada a 3 fotos."),
     ).toBeVisible();
     await waitFor(() => expect(mocked.getEdits).toHaveBeenCalledTimes(2));
+    await user.click(within(panel()).getByRole("radio", { name: /^Esta foto/ }));
     expect(
       await within(panel()).findByRole("spinbutton", { name: "Exposición (valor)" }),
     ).toHaveDisplayValue("0.6");
@@ -177,6 +185,7 @@ describe("automatic correction of a group", () => {
 
   it("shows the corrections in the viewer once the job is done, not only in the sliders", async () => {
     const user = openReview();
+    await toGroup(user);
     await waitFor(() => expect(mocked.preview).toHaveBeenCalledWith("IMG_2", expect.anything()));
     await start(user);
     const asked = () => mocked.preview.mock.calls.filter(([id]) => id === "IMG_2").length;
@@ -193,6 +202,7 @@ describe("automatic correction of a group", () => {
   it("leaves the views of photos the job did not change alone", async () => {
     mocked.getEdits.mockResolvedValue({ IMG_4: FOUND });
     const user = openReview();
+    await toGroup(user);
     await waitFor(() => expect(mocked.getEdits).toHaveBeenCalled());
     await user.keyboard("{ArrowDown}"); // IMG_4's burst, so its view gets loaded
     await waitFor(() => expect(mocked.preview).toHaveBeenCalledWith("IMG_4", expect.anything()));
@@ -208,6 +218,7 @@ describe("automatic correction of a group", () => {
 
   it("can be cancelled, and keeps what was already corrected", async () => {
     const user = openReview();
+    await toGroup(user);
     await start(user);
     act(() => emit(progress(1, 3)));
     await user.click(within(panel()).getByRole("button", { name: "Cancelar" }));
@@ -219,6 +230,7 @@ describe("automatic correction of a group", () => {
   it("goes back to what each photo had with Deshacer", async () => {
     mocked.getEdits.mockResolvedValue({ IMG_1: SAVED({ tint: 0.2 }) });
     const user = openReview();
+    await toGroup(user);
     await waitFor(() => expect(mocked.getEdits).toHaveBeenCalled());
     await start(user);
     mocked.getEdits.mockResolvedValue({ IMG_1: FOUND, IMG_2: FOUND, IMG_3: FOUND });
@@ -239,6 +251,7 @@ describe("automatic correction of a group", () => {
   it("can undo the automatic correction of a single photo too", async () => {
     mocked.getEdits.mockResolvedValue({ IMG_2: SAVED({ saturation: 0.1 }) });
     const user = openReview();
+    await user.click(within(panel()).getByRole("button", { name: "Color" }));
     await within(panel()).findByRole("spinbutton", { name: "Saturación (valor)" });
     await user.click(within(panel()).getByRole("button", { name: "Automático" }));
     await waitFor(() => expect(mocked.setEdits).toHaveBeenCalled());
@@ -248,6 +261,7 @@ describe("automatic correction of a group", () => {
 
   it("reports a job that failed", async () => {
     const user = openReview();
+    await toGroup(user);
     await start(user);
     act(() => emit(done("failed", 0)));
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -264,6 +278,7 @@ describe("automatic correction of a group", () => {
       }),
     );
     const user = openReview();
+    await toGroup(user);
     await user.click(within(panel()).getByRole("button", { name: "Automático al grupo" }));
     act(() => emit(done("done", 3)));
     act(() => answer({ job_id: "a1" }));
@@ -274,10 +289,12 @@ describe("automatic correction of a group", () => {
 
   it("is off when the group is empty and cannot be started twice", async () => {
     const user = openReview();
-    await user.selectOptions(within(panel()).getByLabelText("Aplicar a"), "Solo esta foto");
+    await toGroup(user);
+    await user.selectOptions(within(panel()).getByLabelText("¿A qué fotos?"), "Solo esta foto");
     await user.click(within(panel()).getByRole("button", { name: "Automático al grupo" }));
     await waitFor(() => expect(mocked.autofixRun).toHaveBeenCalledTimes(1));
     expect(within(panel()).queryByRole("button", { name: "Automático al grupo" })).toBeNull();
+    await user.click(within(panel()).getByRole("radio", { name: /^Esta foto/ }));
     expect(within(panel()).getByRole("button", { name: "Automático" })).toBeDisabled();
   });
 });

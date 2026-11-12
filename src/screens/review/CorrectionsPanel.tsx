@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "../../components/Button.tsx";
 import { Panel } from "../../components/Panel.tsx";
+import { SegmentedControl } from "../../components/SegmentedControl.tsx";
 import type { Adjustments, LutInfo, SelectedBurst, SelectedPhoto } from "../../lib/engine.ts";
-import { isNeutral } from "../../lib/engine.ts";
+import { hasGeometry, NEUTRAL, withGeometryOf } from "../../lib/engine.ts";
 import { livePreview } from "../../lib/livePreview.ts";
 import { previews } from "../../lib/previews.ts";
-import { AutoGroup, AutoTop } from "./AutoCorrect.tsx";
-import styles from "./CorrectionsPanel.module.css";
-import { ManualControls } from "./ManualControls.tsx";
-import { buildScopes, SCOPE_ORDER, type Scope, scopeText } from "./scopes.ts";
+import { CropEditor } from "./crop/CropEditor.tsx";
+import { GroupTab } from "./GroupTab.tsx";
+import { PhotoTab } from "./PhotoTab.tsx";
+import { buildScopes, type Scope } from "./scopes.ts";
 import { useAutofix } from "./useAutofix.ts";
 import type { Edits } from "./useEdits.ts";
 
@@ -27,8 +27,8 @@ type Props = {
 };
 
 /**
- * Basic corrections for the photo on screen, saved as you drag. The same corrections can be copied
- * to a group of photos, and any group can be exported from here.
+ * Corrections for the photo on screen, saved as you drag ("Esta foto"), and what can be done to
+ * several photos at once ("Varias fotos"): copy settings, correct automatically, clear, export.
  */
 export function CorrectionsPanel({
   sessionId,
@@ -44,6 +44,8 @@ export function CorrectionsPanel({
   const stored = edits.of(photoId);
   const [draft, setDraft] = useState<{ id: string; value: Adjustments } | null>(null);
   const [scope, setScope] = useState<Scope>("burst");
+  const [tab, setTab] = useState<"photo" | "group">("photo");
+  const [cropping, setCropping] = useState(false);
   const pending = useRef<{ id: string; value: Adjustments; timer: number } | null>(null);
   const save = useRef(edits.apply);
   save.current = edits.apply;
@@ -82,11 +84,21 @@ export function CorrectionsPanel({
     pending.current = { id: photoId, value, timer };
   }
 
-  async function copyToGroup() {
+  /** The photo's settings on the others; each keeps its own crop and turn unless asked. */
+  async function copyToGroup(withGeometry: boolean) {
     flush();
-    await edits.apply(scopes[scope], current);
+    const ids = scopes[scope];
+    if (withGeometry) {
+      await edits.apply(ids, current);
+    } else if (ids.some((id) => hasGeometry(edits.of(id)))) {
+      await edits.put(
+        Object.fromEntries(ids.map((id) => [id, withGeometryOf(current, edits.of(id))])),
+      );
+    } else {
+      await edits.apply(ids, withGeometryOf(current, NEUTRAL)); // none has a crop or turn to keep
+    }
     setDraft(null);
-    for (const id of scopes[scope]) livePreview.clear(id);
+    for (const id of ids) livePreview.clear(id);
   }
 
   async function restore(ids: string[]) {
@@ -111,76 +123,68 @@ export function CorrectionsPanel({
     change(sliders); // the LUT the photo already has stays as it was
   }
 
+  const photoCount = scopes[scope].length;
+
   return (
-    <Panel title="Corrección básica" icon="sliders">
-      <AutoTop
-        whiteBalance={auto.whiteBalance}
-        onWhiteBalance={auto.setWhiteBalance}
-        disabled={!photo}
-        busy={auto.running !== null}
-        onAuto={() => void autoCurrent()}
+    <Panel title="Correcciones" icon="sliders">
+      <SegmentedControl
+        label="Qué corregir"
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: "photo", label: "Esta foto" },
+          { value: "group", label: "Varias fotos", count: photoCount },
+        ]}
       />
-      <ManualControls current={current} disabled={!photo} luts={luts} onChange={change} />
-
-      <Button
-        size="sm"
-        disabled={!photo || isNeutral(current)}
-        onClick={() => void restore(scopes.current)}
-      >
-        Restablecer esta foto
-      </Button>
-
-      <div className={styles.group}>
-        <label className={styles.field}>
-          Aplicar a
-          <select value={scope} onChange={(event) => setScope(event.target.value as Scope)}>
-            {SCOPE_ORDER.map((id) => (
-              <option key={id} value={id} disabled={scopes[id].length === 0}>
-                {scopeText(id, scopes)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className={styles.buttons}>
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={!photo || scopes[scope].length === 0}
-            onClick={() => void copyToGroup()}
-          >
-            Aplicar al grupo
-          </Button>
-          <Button
-            size="sm"
-            disabled={scopes[scope].length === 0}
-            onClick={() => void restore(scopes[scope])}
-          >
-            Quitar correcciones
-          </Button>
-        </div>
-        <AutoGroup
-          count={scopes[scope].length}
-          running={auto.running}
-          message={auto.message}
-          canUndo={auto.canUndo}
-          onRun={() => {
-            flush();
-            void auto.runGroup(scopes[scope]);
-          }}
-          onCancel={auto.cancel}
-          onUndo={() => void auto.undo()}
+      {tab === "photo" ? (
+        <PhotoTab
+          current={current}
+          hasPhoto={Boolean(photo)}
+          luts={luts}
+          whiteBalance={auto.whiteBalance}
+          onWhiteBalance={auto.setWhiteBalance}
+          autoBusy={auto.running !== null}
+          onAuto={() => void autoCurrent()}
+          onChange={change}
+          onCrop={() => setCropping(true)}
+          onRestore={() => void restore(scopes.current)}
         />
-        <Button
-          icon="download"
-          disabled={scopes[scope].length === 0}
-          onClick={() => {
+      ) : (
+        <GroupTab
+          scope={scope}
+          scopes={scopes}
+          hasPhoto={Boolean(photo)}
+          onScope={setScope}
+          onCopy={(withGeometry) => void copyToGroup(withGeometry)}
+          onClear={() => void restore(scopes[scope])}
+          onExport={() => {
             flush();
             onExport(scope);
           }}
-        >
-          Exportar…
-        </Button>
-      </div>
+          whiteBalance={auto.whiteBalance}
+          onWhiteBalance={auto.setWhiteBalance}
+          running={auto.running}
+          message={auto.message}
+          canUndo={auto.canUndo}
+          onRunAuto={() => {
+            flush();
+            void auto.runGroup(scopes[scope]);
+          }}
+          onCancelAuto={auto.cancel}
+          onUndoAuto={() => void auto.undo()}
+        />
+      )}
+      {cropping && photoId ? (
+        <CropEditor
+          photoId={photoId}
+          current={current}
+          onClose={() => setCropping(false)}
+          onApply={(geometry) => {
+            change(geometry);
+            setCropping(false);
+          }}
+        />
+      ) : null}
     </Panel>
   );
 }

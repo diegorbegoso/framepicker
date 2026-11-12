@@ -1,0 +1,39 @@
+.root {
+  display: grid;
+  border-top: 1px solid var(--divider);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 36px;
+  padding: var(--space-1) 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.body {
+  display: grid;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+}

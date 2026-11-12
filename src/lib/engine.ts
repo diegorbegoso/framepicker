@@ -108,7 +108,44 @@ export const ExportOptions = z.object({
 });
 export type ExportOptions = z.infer<typeof ExportOptions>;
 
-/** The basic corrections of one photo. All zero and no LUT means "as shot". */
+/** Where a curve passes: points [input, output] from 0 to 1, left to right. Fewer than two: none. */
+export const CurvePoints = z.array(z.tuple([z.number(), z.number()]));
+export const CURVE_CHANNELS = ["master", "r", "g", "b"] as const;
+export type CurveChannel = (typeof CURVE_CHANNELS)[number];
+export const Curves = z.object({
+  master: CurvePoints.default([]),
+  r: CurvePoints.default([]),
+  g: CurvePoints.default([]),
+  b: CurvePoints.default([]),
+});
+export type Curves = z.infer<typeof Curves>;
+
+export const HSL_COLORS = [
+  "red",
+  "orange",
+  "yellow",
+  "green",
+  "aqua",
+  "blue",
+  "purple",
+  "magenta",
+] as const;
+export type HslColor = (typeof HSL_COLORS)[number];
+const Triple = z.tuple([z.number(), z.number(), z.number()]);
+/** Hue, saturation and brightness moves (-1 to 1) for each colour range. */
+export const Hsl = z.object(
+  Object.fromEntries(HSL_COLORS.map((color) => [color, Triple.default([0, 0, 0])])) as Record<
+    HslColor,
+    z.ZodDefault<typeof Triple>
+  >,
+);
+export type Hsl = z.infer<typeof Hsl>;
+
+export const neutralCurves = (): Curves => ({ master: [], r: [], g: [], b: [] });
+export const neutralHsl = (): Hsl =>
+  Object.fromEntries(HSL_COLORS.map((color) => [color, [0, 0, 0]])) as Hsl;
+
+/** The corrections of one photo. All zero, no LUT and no crop or turn means "as shot". */
 export const Adjustments = z.object({
   exposure: z.number(),
   contrast: z.number(),
@@ -119,6 +156,23 @@ export const Adjustments = z.object({
   saturation: z.number(),
   lut_id: z.string().nullable(),
   lut_strength: z.number(),
+  whites: z.number().default(0),
+  blacks: z.number().default(0),
+  vibrance: z.number().default(0),
+  clarity: z.number().default(0),
+  sharpen: z.number().default(0),
+  vignette: z.number().default(0),
+  curves: Curves.default({ master: [], r: [], g: [], b: [] }),
+  hsl: Hsl.default(neutralHsl()),
+  /** Quarter turns clockwise, 0 to 3. */
+  rotate: z.number().default(0),
+  flip: z.boolean().default(false),
+  /** Degrees to straighten, -45 to 45; positive turns the picture clockwise. */
+  angle: z.number().default(0),
+  /** [x0, y0, x1, y1] on the straightened canvas, 0 to 1; null: the whole picture. */
+  crop: z.tuple([z.number(), z.number(), z.number(), z.number()]).nullable().default(null),
+  /** The proportion the crop was drawn with ("3:2", "libre"...), only to reopen the editor. */
+  aspect: z.string().nullable().default(null),
 });
 export type Adjustments = z.infer<typeof Adjustments>;
 
@@ -132,21 +186,65 @@ export const NEUTRAL: Adjustments = {
   saturation: 0,
   lut_id: null,
   lut_strength: 1,
+  whites: 0,
+  blacks: 0,
+  vibrance: 0,
+  clarity: 0,
+  sharpen: 0,
+  vignette: 0,
+  curves: neutralCurves(),
+  hsl: neutralHsl(),
+  rotate: 0,
+  flip: false,
+  angle: 0,
+  crop: null,
+  aspect: null,
 };
 
-const SLIDER_KEYS = [
+/** Every number slider (exposure in stops, the rest from -1 to 1; sharpen from 0 to 1). */
+export const SLIDER_KEYS = [
   "exposure",
   "contrast",
   "highlights",
   "shadows",
+  "whites",
+  "blacks",
   "temperature",
   "tint",
+  "vibrance",
   "saturation",
+  "clarity",
+  "sharpen",
+  "vignette",
 ] as const;
+export type SliderKey = (typeof SLIDER_KEYS)[number];
 
-/** True when the corrections change nothing: every control at zero and no LUT. */
+const curveIsStraight = (points: Curves[CurveChannel]) =>
+  points.length < 2 || points.every(([x, y]) => Math.abs(x - y) < 1e-6);
+
+export const hasCurves = (adj: Adjustments) =>
+  !CURVE_CHANNELS.every((channel) => curveIsStraight(adj.curves[channel]));
+export const hasMixer = (adj: Adjustments) =>
+  HSL_COLORS.some((color) => adj.hsl[color].some((n) => n !== 0));
+/** A turn, a mirror, a straightening or a crop. The proportion alone changes nothing. */
+export const hasGeometry = (adj: Adjustments) =>
+  adj.rotate % 4 !== 0 || adj.flip || adj.angle !== 0 || adj.crop !== null;
+
+/** True when the corrections change nothing at all. */
 export function isNeutral(adj: Adjustments): boolean {
-  return adj.lut_id === null && SLIDER_KEYS.every((key) => adj[key] === 0);
+  return (
+    adj.lut_id === null &&
+    SLIDER_KEYS.every((key) => adj[key] === 0) &&
+    !hasCurves(adj) &&
+    !hasMixer(adj) &&
+    !hasGeometry(adj)
+  );
+}
+
+/** The same corrections but with the geometry (turn, mirror, angle, crop) of another set. */
+export function withGeometryOf(adj: Adjustments, geometry: Adjustments): Adjustments {
+  const { rotate, flip, angle, crop, aspect } = geometry;
+  return { ...adj, rotate, flip, angle, crop, aspect };
 }
 
 export const Weights = z.object({ sharpness: z.number(), exposure: z.number(), eyes: z.number() });
@@ -511,4 +609,15 @@ export async function onEngineEvent(callback: (event: EngineEvent) => void): Pro
 
 export function fileName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
+}
+
+/** The angle that would level a photo from its straight lines, or none when it has no clear ones. */
+export async function straightenSuggest(
+  photoId: string,
+): Promise<{ found: boolean; angle: number }> {
+  return engineRequest(
+    "straighten_suggest",
+    { photo_id: photoId },
+    z.object({ found: z.boolean(), angle: z.number() }),
+  );
 }

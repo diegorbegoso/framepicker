@@ -260,7 +260,7 @@ describe("zoom and compare", () => {
     renderReview();
     await user.keyboard("c");
     expect(screen.getByText("Referencia")).toBeInTheDocument();
-    expect(screen.getByText("Esta foto")).toBeInTheDocument();
+    expect(screen.getAllByText("Esta foto").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Comparar" })).toHaveAttribute(
       "aria-pressed",
       "true",

@@ -27,6 +27,19 @@
   --success: #17703a;
   --success-soft: #e3f4e8;
 
+  /* Colour channels of the curves and the colour mixer swatches */
+  --curve-r: #d64545;
+  --curve-g: #2e9e57;
+  --curve-b: #2f6fe0;
+  --hsl-red: #e03a3a;
+  --hsl-orange: #ee8a2a;
+  --hsl-yellow: #e6c82e;
+  --hsl-green: #3aa655;
+  --hsl-aqua: #2fb5b5;
+  --hsl-blue: #3a6ee0;
+  --hsl-purple: #8a4fd6;
+  --hsl-magenta: #d64fa8;
+
   /* Photo stage: the surroundings of the photo */
   --stage: #e9edf3;
   --stage-raised: #f6f8fb;
@@ -102,6 +115,18 @@
   --destructive: #ff8a80;
   --success: #7ddc8f;
   --success-soft: #16301f;
+
+  --curve-r: #ff7b7b;
+  --curve-g: #6fdc8c;
+  --curve-b: #7aa7ff;
+  --hsl-red: #ff6b6b;
+  --hsl-orange: #ffa24d;
+  --hsl-yellow: #f3d95a;
+  --hsl-green: #5cc878;
+  --hsl-aqua: #5ad6d6;
+  --hsl-blue: #6f9bff;
+  --hsl-purple: #b184f0;
+  --hsl-magenta: #f07cc8;
 
   --stage: #0d0f12;
   --stage-raised: #171a1f;

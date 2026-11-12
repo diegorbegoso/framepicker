@@ -73,7 +73,14 @@ function drag(slider: HTMLElement, value: number) {
   });
 }
 
-const panel = () => screen.getByRole("region", { name: "Corrección básica" });
+const panel = () => screen.getByRole("region", { name: "Correcciones" });
+type User = ReturnType<typeof userEvent.setup>;
+/** Switches the panel to "Esta foto" or "Varias fotos". */
+const tab = (user: User, name: "Esta foto" | "Varias fotos", root: HTMLElement = panel()) =>
+  user.click(within(root).getByRole("radio", { name: new RegExp(`^${name}`) }));
+/** Unfolds a section of "Esta foto" (Color, Detalle, LUT...). */
+const unfold = (user: User, title: string) =>
+  user.click(within(panel()).getByRole("button", { name: title }));
 const SAVED = (patch: Partial<Adjustments>): Adjustments => ({ ...NEUTRAL, ...patch });
 
 describe("scopes", () => {
@@ -172,6 +179,8 @@ describe("the corrections panel", () => {
 
   it("keeps a typed number inside the range and takes a LUT strength in percent", async () => {
     const user = openReview();
+    await unfold(user, "Color");
+    await unfold(user, "LUT");
     const saturation = within(panel()).getByRole("spinbutton", { name: "Saturación (valor)" });
     await user.click(saturation);
     await user.keyboard("{Control>}a{/Control}500");
@@ -189,8 +198,10 @@ describe("the corrections panel", () => {
 
   it("copies the corrections to the whole burst with one button", async () => {
     const user = openReview();
+    await unfold(user, "Color");
     drag(within(panel()).getByRole("slider", { name: "Saturación" }), -0.5);
-    await user.click(within(panel()).getByRole("button", { name: "Aplicar al grupo" }));
+    await tab(user, "Varias fotos");
+    await user.click(within(panel()).getByRole("button", { name: "Aplicar a 3 fotos" }));
     await waitFor(() => expect(mocked.setEdits).toHaveBeenCalled());
     const [, ids, adjustments] = mocked.setEdits.mock.calls.at(-1) ?? [];
     expect(ids).toEqual(["IMG_1", "IMG_2", "IMG_3"]);
@@ -199,11 +210,13 @@ describe("the corrections panel", () => {
 
   it("applies a LUT from the library, with its strength, to the chosen photos", async () => {
     const user = openReview();
+    await unfold(user, "LUT");
     await within(panel()).findByRole("option", { name: "Cálido" });
     await user.selectOptions(within(panel()).getByLabelText("LUT"), "Cálido");
     drag(within(panel()).getByRole("slider", { name: "Intensidad del LUT" }), 0.6);
-    await user.selectOptions(within(panel()).getByLabelText("Aplicar a"), "Las elegidas (2)");
-    await user.click(within(panel()).getByRole("button", { name: "Aplicar al grupo" }));
+    await tab(user, "Varias fotos");
+    await user.selectOptions(within(panel()).getByLabelText("¿A qué fotos?"), "Las elegidas (2)");
+    await user.click(within(panel()).getByRole("button", { name: "Aplicar a 2 fotos" }));
     await waitFor(() => expect(mocked.setEdits).toHaveBeenCalled());
     const [, ids, adjustments] = mocked.setEdits.mock.calls.at(-1) ?? [];
     expect(ids).toEqual(["IMG_2", "IMG_4"]);
@@ -223,6 +236,7 @@ describe("the corrections panel", () => {
 
   it("removes the corrections of a group", async () => {
     const user = openReview();
+    await tab(user, "Varias fotos");
     await user.click(within(panel()).getByRole("button", { name: "Quitar correcciones" }));
     await waitFor(() =>
       expect(mocked.resetEdits).toHaveBeenCalledWith("s1", ["IMG_1", "IMG_2", "IMG_3"]),
@@ -243,6 +257,7 @@ describe("the corrections panel", () => {
 
   it("keeps a pending change for the first photo when you move to another one", async () => {
     const user = openReview();
+    await unfold(user, "Color");
     drag(within(panel()).getByRole("slider", { name: "Tinte" }), 0.4);
     await user.keyboard("{ArrowRight}");
     await waitFor(() => expect(mocked.setEdits).toHaveBeenCalled());
@@ -253,7 +268,11 @@ describe("the corrections panel", () => {
   it("opens the export window on the group chosen in the panel", async () => {
     mocked.setSetting.mockResolvedValue({ key: "export_options", value: {} });
     const user = openReview();
-    await user.selectOptions(within(panel()).getByLabelText("Aplicar a"), "Todas las fotos (5)");
+    await tab(user, "Varias fotos");
+    await user.selectOptions(
+      within(panel()).getByLabelText("¿A qué fotos?"),
+      "Todas las fotos (5)",
+    );
     await user.click(within(panel()).getByRole("button", { name: "Exportar…" }));
     const dialog = await screen.findByRole("dialog", { name: "Exportar fotos" });
     expect(within(dialog).getByLabelText("Qué exportar")).toHaveValue("all");
@@ -261,7 +280,8 @@ describe("the corrections panel", () => {
   });
 
   it("offers the marked photos only when there are some", async () => {
-    openReview();
+    const user = openReview();
+    await tab(user, "Varias fotos");
     const marked = within(panel()).getByRole("option", { name: "Las marcadas (0)" });
     expect(marked).toBeDisabled();
   });
@@ -316,8 +336,9 @@ describe("marking photos in the grid", () => {
     await user.keyboard("{/Control}");
     const side = screen.getByRole("complementary", { name: "Foto enfocada" });
     drag(within(side).getByRole("slider", { name: "Exposición" }), 0.5);
-    await user.selectOptions(within(side).getByLabelText("Aplicar a"), "Las marcadas (2)");
-    await user.click(within(side).getByRole("button", { name: "Aplicar al grupo" }));
+    await tab(user, "Varias fotos", side);
+    await user.selectOptions(within(side).getByLabelText("¿A qué fotos?"), "Las marcadas (2)");
+    await user.click(within(side).getByRole("button", { name: "Aplicar a 2 fotos" }));
     await waitFor(() => expect(mocked.setEdits).toHaveBeenCalled());
     const [, ids] = mocked.setEdits.mock.calls.at(-1) ?? [];
     expect(ids).toEqual(["IMG_3", "IMG_5"]);

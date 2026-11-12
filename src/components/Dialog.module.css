@@ -20,6 +20,11 @@
   box-shadow: var(--shadow-3);
 }
 
+.wide {
+  width: min(1040px, 100%);
+  height: min(760px, 100%);
+}
+
 .header {
   display: flex;
   align-items: center;
