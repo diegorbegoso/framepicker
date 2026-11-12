@@ -24,3 +24,7 @@
   font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
 }
+
+.session {
+  max-width: 220px;
+}

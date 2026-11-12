@@ -58,6 +58,7 @@ export function ReviewScreen({
   const [panelOpen, setPanelOpen] = useState(() => window.innerWidth >= 1180);
   const [error, setError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  const [name, setName] = useState(initial.label ?? "Sesión");
   const [marked, setMarked] = useState<ReadonlySet<string>>(new Set());
   const [gridFocus, setGridFocus] = useState<string | undefined>();
   const [exportRequest, setExportRequest] = useState<ExportRequest | null>(null);
@@ -148,6 +149,8 @@ export function ReviewScreen({
       <h2 className={styles.srOnly}>Revisa tus ráfagas</h2>
       {immersive ? null : (
         <ReviewBar
+          name={name}
+          onRename={async (next) => setName(await engine.sessionRename(sessionId, next))}
           mode={mode}
           onMode={setMode}
           sessionId={sessionId}

@@ -1,4 +1,5 @@
 import { Icon } from "../components/Icon.tsx";
+import { InlineName } from "../components/InlineName.tsx";
 import { SegmentedControl } from "../components/SegmentedControl.tsx";
 import { ThemeSwitch } from "../components/ThemeSwitch.tsx";
 import type { Theme } from "../lib/theme.ts";
@@ -9,6 +10,9 @@ import type { ScopeIds } from "./review/scopes.ts";
 export type Mode = "bursts" | "grid";
 
 type Props = {
+  /** The session's name, which can be changed from here. */
+  name: string;
+  onRename: (name: string) => Promise<void>;
   mode: Mode;
   onMode: (mode: Mode) => void;
   sessionId: string;
@@ -23,6 +27,8 @@ type Props = {
 
 /** The one bar at the top of a review: the two views, the main functions and the theme. */
 export function ReviewBar({
+  name,
+  onRename,
   mode,
   onMode,
   sessionId,
@@ -39,6 +45,12 @@ export function ReviewBar({
       <span className={styles.mark} role="img" aria-label="Mejores Tomas">
         <Icon name="camera" size={16} />
       </span>
+      <InlineName
+        value={name}
+        label={`Cambiar el nombre de ${name}`}
+        onSave={onRename}
+        className={styles.session}
+      />
       <SegmentedControl
         label="Vista"
         value={mode}

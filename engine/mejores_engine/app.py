@@ -40,8 +40,6 @@ from mejores_engine.scan import Roots, collect, format_of
 from mejores_engine.selftest import selftest
 from mejores_engine.store import Store
 
-FILES_LABEL = "Selección de archivos"
-
 
 def _string_list(params: dict[str, Any], key: str) -> list[str]:
     value = params.get(key)
@@ -154,7 +152,7 @@ def build_dispatcher(
                 raise RpcError(NOT_FOUND, f"path not found: {path}")
         files, skipped = collect(paths, recursive)
         folders = [path for path in paths if path.is_dir()]
-        label = folders[0].name if folders else FILES_LABEL
+        label = folders[0].name if folders else sessions.default_label()
         key = sessions.source_key(files)
         photos: list[dict[str, Any]] = []
         with store().session() as conn:
@@ -216,7 +214,8 @@ def build_dispatcher(
                 raise RpcError(NOT_FOUND, f"session not found: {session_id}")
             chosen = scoring.select_session(conn, session_id, settings.get_all(conn))
             last = sessions.last_burst(conn, session_id)
-        return {"bursts": chosen, "last_burst_id": last}
+            label = sessions.label_of(conn, session_id)
+        return {"bursts": chosen, "last_burst_id": last, "label": label}
 
     @dispatcher.register("confirm_burst")
     def confirm_burst(params: dict[str, Any]) -> dict[str, Any]:

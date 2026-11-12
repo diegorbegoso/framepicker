@@ -121,7 +121,7 @@ def test_individual_files_are_taken_exactly(tmp_path: Path) -> None:
     assert names(reply) == ["a.jpg", "c.jpg"]
     with Store(data).session() as conn:
         label = conn.execute("SELECT label FROM sessions").fetchone()["label"]
-    assert label == "Selección de archivos"
+    assert label.startswith("Selección del ")
 
 
 def test_files_are_listed_in_natural_order(tmp_path: Path) -> None:

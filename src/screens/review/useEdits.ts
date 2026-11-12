@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as engine from "../../lib/engine.ts";
 import { type Adjustments, isNeutral, NEUTRAL } from "../../lib/engine.ts";
+import { livePreview } from "../../lib/livePreview.ts";
 import { previews } from "../../lib/previews.ts";
 
 export type Edits = {
@@ -63,9 +64,22 @@ export function useEdits(sessionId: string, onError: (message: string | null) =>
     [sessionId, stored, onError],
   );
 
+  const latest = useRef(stored);
+  latest.current = stored;
+
   const reload = useCallback(async () => {
     try {
-      setStored(await engine.getEdits(sessionId));
+      const found = await engine.getEdits(sessionId);
+      // What a job changed behind our back: the photos whose corrections differ now show them.
+      const old = latest.current;
+      const changed = [...new Set([...Object.keys(old), ...Object.keys(found)])].filter(
+        (id) => JSON.stringify(old[id]) !== JSON.stringify(found[id]),
+      );
+      setStored(found);
+      if (changed.length > 0) {
+        previews.invalidate(changed);
+        for (const id of changed) livePreview.clear(id);
+      }
     } catch {
       onError("No se pudieron leer las correcciones.");
     }

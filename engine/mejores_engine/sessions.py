@@ -70,6 +70,11 @@ def touch_burst(conn: sqlite3.Connection, burst_id: str) -> None:
     )
 
 
+def label_of(conn: sqlite3.Connection, session_id: str) -> str:
+    row = conn.execute("SELECT label FROM sessions WHERE id = ?", (session_id,)).fetchone()
+    return str(row["label"]) if row else ""
+
+
 def last_burst(conn: sqlite3.Connection, session_id: str) -> str | None:
     """The burst the person was looking at last, if it still exists."""
     row = conn.execute(
@@ -117,6 +122,45 @@ def recent(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     return result
 
 
+MAX_LABEL = 80
+MONTHS = ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic")
+
+
+def clean_label(value: Any) -> str:
+    """A session name: text, without extra spaces, 1 to 80 characters."""
+    if not isinstance(value, str):
+        raise RpcError(INVALID_PARAMS, "label must be text")
+    label = " ".join(value.split())
+    if not label or len(label) > MAX_LABEL:
+        raise RpcError(INVALID_PARAMS, f"label must be 1 to {MAX_LABEL} characters")
+    return label
+
+
+def default_label(when: datetime | None = None) -> str:
+    """The name of a session of loose files, which have no folder: "Selección del 12 nov, 14:32"."""
+    moment = when or datetime.now()  # local time: it is read by the person
+    return f"Selección del {moment.day} {MONTHS[moment.month - 1]}, {moment:%H:%M}"
+
+
+def forget(conn: sqlite3.Connection, session_id: str) -> None:
+    """Remove a session's rows, children first and in bulk. Photos on disk are never touched.
+
+    Letting the cascade do it photo by photo is what made a big session slow to remove.
+    """
+    mine = "SELECT id FROM bursts WHERE session_id = ?"
+    photos = "SELECT id FROM photos WHERE session_id = ?"
+    batches = "SELECT id FROM organize_batches WHERE session_id = ?"
+    conn.execute(f"DELETE FROM selections WHERE burst_id IN ({mine})", (session_id,))  # noqa: S608
+    conn.execute(f"DELETE FROM burst_members WHERE burst_id IN ({mine})", (session_id,))  # noqa: S608
+    conn.execute(f"DELETE FROM photo_edits WHERE photo_id IN ({photos})", (session_id,))  # noqa: S608
+    conn.execute(f"DELETE FROM scores WHERE photo_id IN ({photos})", (session_id,))  # noqa: S608
+    conn.execute(f"DELETE FROM organize_moves WHERE batch_id IN ({batches})", (session_id,))  # noqa: S608
+    conn.execute("DELETE FROM organize_batches WHERE session_id = ?", (session_id,))
+    conn.execute("DELETE FROM bursts WHERE session_id = ?", (session_id,))
+    conn.execute("DELETE FROM photos WHERE session_id = ?", (session_id,))
+    conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+
+
 def _session_id(params: dict[str, Any]) -> str:
     session_id = params.get("session_id")
     if not isinstance(session_id, str) or not session_id:
@@ -160,5 +204,15 @@ def register(dispatcher: Dispatcher, store: Callable[[], Store]) -> None:
         session_id = _session_id(params)
         with store().session() as conn:
             _require(conn, session_id)
-            conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))  # rows only
+            forget(conn, session_id)
         return {"session_id": session_id}
+
+    @dispatcher.register("session_rename")
+    def session_rename(params: dict[str, Any]) -> dict[str, Any]:
+        session_id = _session_id(params)
+        label = clean_label(params.get("label"))
+        with store().session() as conn:
+            _require(conn, session_id)
+            conn.execute("UPDATE sessions SET label = ? WHERE id = ?", (label, session_id))
+            touch(conn, session_id)
+        return {"session_id": session_id, "label": label}

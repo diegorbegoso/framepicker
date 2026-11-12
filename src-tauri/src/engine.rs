@@ -44,6 +44,7 @@ pub const FORWARDABLE: &[&str] = &[
     "sessions_list",
     "session_touch",
     "session_forget",
+    "session_rename",
     "organize_preview",
     "organize_apply",
     "organize_undo",
@@ -294,6 +295,7 @@ mod tests {
         assert!(is_forwardable("edits_put"));
         assert!(is_forwardable("autofix_run"));
         assert!(is_forwardable("sessions_list"));
+        assert!(is_forwardable("session_rename"));
         assert!(is_forwardable("organize_apply"));
         assert!(is_forwardable("luts_add_many"));
         assert!(is_forwardable("luts_add_folder"));

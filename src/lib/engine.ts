@@ -66,6 +66,8 @@ export const SelectResult = z.object({
   bursts: z.array(SelectedBurst),
   /** The burst the person was looking at when they left, if it is known. */
   last_burst_id: z.string().nullable().optional(),
+  /** The session's name. */
+  label: z.string().optional(),
 });
 export type SelectedPhoto = z.infer<typeof SelectedPhoto>;
 export type SelectedBurst = z.infer<typeof SelectedBurst>;
@@ -403,6 +405,16 @@ export function sessionTouch(sessionId: string, burstId?: string) {
     { session_id: sessionId, ...(burstId ? { burst_id: burstId } : {}) },
     z.object({ session_id: z.string() }),
   );
+}
+
+/** Gives the session a name of the person's choosing. */
+export async function sessionRename(sessionId: string, label: string): Promise<string> {
+  const reply = await engineRequest(
+    "session_rename",
+    { session_id: sessionId, label },
+    z.object({ session_id: z.string(), label: z.string() }),
+  );
+  return reply.label;
 }
 
 /** Forgets a session (its choices and corrections). The photos are not touched. */

@@ -175,6 +175,37 @@ describe("automatic correction of a group", () => {
     ).toHaveDisplayValue("0.6");
   });
 
+  it("shows the corrections in the viewer once the job is done, not only in the sliders", async () => {
+    const user = openReview();
+    await waitFor(() => expect(mocked.preview).toHaveBeenCalledWith("IMG_2", expect.anything()));
+    await start(user);
+    const asked = () => mocked.preview.mock.calls.filter(([id]) => id === "IMG_2").length;
+    const before = asked();
+    mocked.getEdits.mockResolvedValue({ IMG_1: FOUND, IMG_2: FOUND, IMG_3: FOUND });
+    act(() => emit(done("done", 3)));
+    await waitFor(() => expect(asked()).toBeGreaterThan(before));
+    expect(mocked.preview).toHaveBeenLastCalledWith(
+      expect.any(String),
+      expect.objectContaining({ edited: true }),
+    );
+  });
+
+  it("leaves the views of photos the job did not change alone", async () => {
+    mocked.getEdits.mockResolvedValue({ IMG_4: FOUND });
+    const user = openReview();
+    await waitFor(() => expect(mocked.getEdits).toHaveBeenCalled());
+    await user.keyboard("{ArrowDown}"); // IMG_4's burst, so its view gets loaded
+    await waitFor(() => expect(mocked.preview).toHaveBeenCalledWith("IMG_4", expect.anything()));
+    await user.keyboard("{ArrowUp}");
+    await start(user);
+    const asked = () => mocked.preview.mock.calls.filter(([id]) => id === "IMG_4").length;
+    const before = asked();
+    mocked.getEdits.mockResolvedValue({ IMG_1: FOUND, IMG_2: FOUND, IMG_3: FOUND, IMG_4: FOUND });
+    act(() => emit(done("done", 3)));
+    await waitFor(() => expect(mocked.getEdits).toHaveBeenCalledTimes(2));
+    expect(asked()).toBe(before);
+  });
+
   it("can be cancelled, and keeps what was already corrected", async () => {
     const user = openReview();
     await start(user);

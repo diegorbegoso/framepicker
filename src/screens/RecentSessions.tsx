@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../components/Button.tsx";
 import { Dialog } from "../components/Dialog.tsx";
+import { InlineName } from "../components/InlineName.tsx";
 import {
+  EngineError,
   type SelectResult,
   type SessionSummary,
   select,
   sessionForget,
+  sessionRename,
   sessionsList,
 } from "../lib/engine.ts";
 import { relativeTime } from "../lib/relativeTime.ts";
@@ -26,6 +29,8 @@ export function RecentSessions({ onOpen, disabled }: Props) {
   const [asking, setAsking] = useState<SessionSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
+  const [forgetting, setForgetting] = useState(false);
+  const [forgetError, setForgetError] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     sessionsList()
@@ -47,13 +52,24 @@ export function RecentSessions({ onOpen, disabled }: Props) {
   }
 
   async function forget(session: SessionSummary) {
-    setAsking(null);
+    setForgetting(true);
+    setForgetError(null);
     try {
       await sessionForget(session.id);
+      setAsking(null);
       refresh();
-    } catch {
-      setError("No se pudo quitar la sesión.");
+    } catch (failure) {
+      // The engine says why (for instance, that the database is busy): show it, and let them retry.
+      const why = failure instanceof EngineError ? ` (${failure.message})` : "";
+      setForgetError(`No se pudo quitar la sesión${why}. Vuelve a intentarlo.`);
+    } finally {
+      setForgetting(false);
     }
+  }
+
+  async function rename(session: SessionSummary, label: string) {
+    const saved = await sessionRename(session.id, label);
+    setSessions((all) => all.map((s) => (s.id === session.id ? { ...s, label: saved } : s)));
   }
 
   if (sessions.length === 0 && !error) return null;
@@ -66,7 +82,12 @@ export function RecentSessions({ onOpen, disabled }: Props) {
         {sessions.map((session) => (
           <li key={session.id} className={styles.card}>
             <div className={styles.text}>
-              <strong className={styles.name}>{session.label}</strong>
+              <InlineName
+                value={session.label}
+                label={`Cambiar el nombre de ${session.label}`}
+                onSave={(name) => rename(session, name)}
+                className={styles.name}
+              />
               <span className={styles.folder} title={session.folder}>
                 {session.folder}
               </span>
@@ -100,7 +121,10 @@ export function RecentSessions({ onOpen, disabled }: Props) {
                 variant="ghost"
                 aria-label={`Quitar ${session.label}`}
                 disabled={opening !== null}
-                onClick={() => setAsking(session)}
+                onClick={() => {
+                  setForgetError(null);
+                  setAsking(session);
+                }}
               >
                 Quitar
               </Button>
@@ -114,17 +138,29 @@ export function RecentSessions({ onOpen, disabled }: Props) {
         </p>
       ) : null}
       {asking ? (
-        <Dialog title="¿Quitar esta sesión?" onClose={() => setAsking(null)}>
+        <Dialog
+          title="¿Quitar esta sesión?"
+          onClose={() => {
+            if (!forgetting) setAsking(null);
+          }}
+        >
           <p className={styles.sure}>
             Se olvidarán tus elecciones, las ráfagas revisadas y las correcciones de «{asking.label}
             ». Tus fotos no se tocan.
           </p>
           <div className={styles.actions}>
-            <Button variant="primary" onClick={() => void forget(asking)}>
-              Quitar sesión
+            <Button variant="primary" disabled={forgetting} onClick={() => void forget(asking)}>
+              {forgetting ? "Quitando…" : "Quitar sesión"}
             </Button>
-            <Button onClick={() => setAsking(null)}>Cancelar</Button>
+            <Button disabled={forgetting} onClick={() => setAsking(null)}>
+              Cancelar
+            </Button>
           </div>
+          {forgetError ? (
+            <p role="alert" className={styles.error}>
+              {forgetError}
+            </p>
+          ) : null}
         </Dialog>
       ) : null}
     </section>
