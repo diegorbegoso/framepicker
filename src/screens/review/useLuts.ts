@@ -6,7 +6,11 @@ export function useLuts() {
   const [luts, setLuts] = useState<LutInfo[]>([]);
   const refresh = useCallback(() => {
     listLuts()
-      .then(setLuts)
+      .then((found) =>
+        setLuts(
+          [...found].sort((a, b) => a.name.localeCompare(b.name, "es", { sensitivity: "base" })),
+        ),
+      )
       .catch(() => undefined);
   }, []);
   useEffect(refresh, [refresh]);

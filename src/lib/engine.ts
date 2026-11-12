@@ -255,21 +255,34 @@ export async function listLuts(): Promise<LutInfo[]> {
   return (await engineRequest("luts_list", {}, z.object({ luts: z.array(LutInfo) }))).luts;
 }
 
-/** Copies a `.cube` file (picked with `pickLut`) into the program's own library. */
-export function addLut(path: string) {
-  return engineRequest("luts_add", { path }, LutInfo);
+export const LutsAdded = z.object({
+  added: z.array(LutInfo),
+  /** Files whose look was already in the library. */
+  duplicates: z.array(z.object({ path: z.string(), name: z.string() })),
+  failed: z.array(z.object({ path: z.string(), message: z.string() })),
+});
+export type LutsAdded = z.infer<typeof LutsAdded>;
+
+/** Copies several `.cube` files (picked with `pickLuts`) into the program's own library. */
+export function addLuts(paths: string[]) {
+  return engineRequest("luts_add_many", { paths }, LutsAdded);
+}
+
+/** Copies every `.cube` file of a folder (picked with `pickFolder`). */
+export function addLutFolder(path: string) {
+  return engineRequest("luts_add_folder", { path }, LutsAdded);
 }
 
 export function removeLut(lutId: string) {
   return engineRequest("luts_remove", { lut_id: lutId }, z.object({ lut_id: z.string() }));
 }
 
-/** Native dialog for a `.cube` file; the shell grants it to the engine. `null` when cancelled. */
-export async function pickLut(): Promise<string | null> {
+/** Native dialog for `.cube` files, several at once; the shell grants them. `null` when cancelled. */
+export async function pickLuts(): Promise<string[] | null> {
   return z
-    .string()
+    .array(z.string())
     .nullable()
-    .parse(await invoke("pick_lut"));
+    .parse(await invoke("pick_luts"));
 }
 
 const OrganizePreview = z.object({

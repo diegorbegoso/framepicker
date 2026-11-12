@@ -3,6 +3,7 @@ import { Button } from "../../components/Button.tsx";
 import { Dialog } from "../../components/Dialog.tsx";
 import { IconButton } from "../../components/IconButton.tsx";
 import * as engine from "../../lib/engine.ts";
+import { summarizeLuts } from "../../lib/lutSummary.ts";
 import styles from "./LutDialog.module.css";
 
 type Props = {
@@ -11,13 +12,15 @@ type Props = {
   onClose: () => void;
 };
 
-const INVALID = "Ese archivo no es un LUT 3D .cube válido.";
+const byName = (a: engine.LutInfo, b: engine.LutInfo) =>
+  a.name.localeCompare(b.name, "es", { sensitivity: "base" });
 
-/** The LUTs kept in the program: load one once and it stays for every photo and every session. */
+/** The LUTs kept in the program: load them once and they stay for every photo and every session. */
 export function LutDialog({ onChanged, onClose }: Props) {
   const [luts, setLuts] = useState<engine.LutInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -31,20 +34,37 @@ export function LutDialog({ onChanged, onClose }: Props) {
     void refresh();
   }, [refresh]);
 
-  async function load() {
+  /** Runs a load, then shows what came of it: some may go in while others are repeated or broken. */
+  async function load(pick: () => Promise<engine.LutsAdded | null>) {
     setError(null);
+    setStatus("");
+    setBusy(true);
     try {
-      const path = await engine.pickLut();
-      if (path === null) return;
-      const added = await engine.addLut(path);
+      const result = await pick();
+      if (result === null) return;
       await refresh();
       onChanged();
-      setStatus(`Se cargó ${added.name}. Queda guardado en el programa.`);
-    } catch (failure) {
-      const invalid = failure instanceof engine.EngineError && failure.code === -32602;
-      setError(invalid ? INVALID : "No se pudo cargar el LUT.");
+      const text = summarizeLuts(result);
+      if (result.added.length === 0 && result.failed.length > 0) setError(text);
+      else setStatus(text);
+    } catch {
+      setError("No se pudieron cargar los LUT.");
+    } finally {
+      setBusy(false);
     }
   }
+
+  const loadFiles = () =>
+    load(async () => {
+      const paths = await engine.pickLuts();
+      return paths && paths.length > 0 ? engine.addLuts(paths) : null;
+    });
+
+  const loadFolder = () =>
+    load(async () => {
+      const folder = await engine.pickFolder();
+      return folder === null ? null : engine.addLutFolder(folder);
+    });
 
   async function remove(lut: engine.LutInfo) {
     try {
@@ -63,11 +83,19 @@ export function LutDialog({ onChanged, onClose }: Props) {
         Un LUT cambia el color de las fotos, como un filtro. Se carga una sola vez y queda guardado
         en el programa. Después lo eliges en «Corrección básica», para una foto o para un grupo.
       </p>
-      <Button variant="primary" icon="folder" onClick={() => void load()}>
-        Cargar LUT (.cube)…
-      </Button>
+      <div className={styles.buttons}>
+        <Button variant="primary" icon="sparkle" disabled={busy} onClick={() => void loadFiles()}>
+          Cargar LUT…
+        </Button>
+        <Button icon="folder" disabled={busy} onClick={() => void loadFolder()}>
+          Cargar carpeta…
+        </Button>
+      </div>
+      <p className={styles.hint}>
+        Puedes elegir varios archivos .cube a la vez, o una carpeta entera.
+      </p>
       <ul className={styles.list} aria-label="LUT guardados">
-        {luts.map((lut) => (
+        {[...luts].sort(byName).map((lut) => (
           <li key={lut.id} className={styles.row}>
             <span className={styles.name}>{lut.name}</span>
             <span className={styles.size}>
