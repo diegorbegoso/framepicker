@@ -23,6 +23,8 @@ type Props = {
   marked: ReadonlySet<string>;
   edits: Edits;
   luts: LutInfo[];
+  /** The LUT library changed (a favourite): read it again. */
+  onLutsChanged?: () => void;
   onExport: (scope: Scope) => void;
 };
 
@@ -38,6 +40,7 @@ export function CorrectionsPanel({
   marked,
   edits,
   luts,
+  onLutsChanged = () => undefined,
   onExport,
 }: Props) {
   const photoId = photo?.id;
@@ -123,6 +126,14 @@ export function CorrectionsPanel({
     change(sliders); // the LUT the photo already has stays as it was
   }
 
+  /** Shows a LUT being looked at in the gallery on the photo, without saving it. */
+  function hoverLut(lutId: string | null | undefined) {
+    if (!photoId) return;
+    if (lutId !== undefined) livePreview.update(photoId, { ...current, lut_id: lutId });
+    else if (pending.current?.id === photoId) livePreview.update(photoId, current);
+    else livePreview.clear(photoId);
+  }
+
   const photoCount = scopes[scope].length;
 
   return (
@@ -140,7 +151,10 @@ export function CorrectionsPanel({
         <PhotoTab
           current={current}
           hasPhoto={Boolean(photo)}
+          photoId={photoId}
           luts={luts}
+          onHoverLut={hoverLut}
+          onLutsChanged={onLutsChanged}
           whiteBalance={auto.whiteBalance}
           onWhiteBalance={auto.setWhiteBalance}
           autoBusy={auto.running !== null}

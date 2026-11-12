@@ -210,6 +210,7 @@ export function ReviewScreen({
             marked={marked}
             edits={edits}
             luts={luts}
+            onLutsChanged={refreshLuts}
             onExport={requestExport}
             onApplied={(next) => {
               setBursts(next);
@@ -228,6 +229,7 @@ export function ReviewScreen({
           marked={marked}
           edits={edits}
           luts={luts}
+          onLutsChanged={refreshLuts}
           onMarkedChange={setMarked}
           onFocusPhoto={setGridFocus}
           onSetPick={(burstId, photo, value) => void setPick(burstId, photo, value)}

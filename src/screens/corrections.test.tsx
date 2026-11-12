@@ -185,15 +185,15 @@ describe("the corrections panel", () => {
     await user.click(saturation);
     await user.keyboard("{Control>}a{/Control}500");
     expect(within(panel()).getByRole("slider", { name: "Saturación" })).toHaveValue("1");
-    await within(panel()).findByRole("option", { name: "Cálido" });
-    await user.selectOptions(within(panel()).getByLabelText("LUT"), "Cálido");
-    const strength = within(panel()).getByRole("spinbutton", {
+    await user.click(within(panel()).getByRole("button", { name: "Elegir LUT…" }));
+    await user.click(await screen.findByRole("button", { name: "Cálido" }));
+    const strength = screen.getByRole("spinbutton", {
       name: "Intensidad del LUT (valor)",
     });
     expect(strength).toHaveDisplayValue("100");
     await user.click(strength);
     await user.keyboard("{Control>}a{/Control}40");
-    expect(within(panel()).getByRole("slider", { name: "Intensidad del LUT" })).toHaveValue("0.4");
+    expect(screen.getByRole("slider", { name: "Intensidad del LUT" })).toHaveValue("0.4");
   });
 
   it("copies the corrections to the whole burst with one button", async () => {
@@ -211,9 +211,10 @@ describe("the corrections panel", () => {
   it("applies a LUT from the library, with its strength, to the chosen photos", async () => {
     const user = openReview();
     await unfold(user, "LUT");
-    await within(panel()).findByRole("option", { name: "Cálido" });
-    await user.selectOptions(within(panel()).getByLabelText("LUT"), "Cálido");
-    drag(within(panel()).getByRole("slider", { name: "Intensidad del LUT" }), 0.6);
+    await user.click(within(panel()).getByRole("button", { name: "Elegir LUT…" }));
+    await user.click(await screen.findByRole("button", { name: "Cálido" }));
+    drag(screen.getByRole("slider", { name: "Intensidad del LUT" }), 0.6);
+    await user.click(screen.getByRole("button", { name: "Cerrar" }));
     await tab(user, "Varias fotos");
     await user.selectOptions(within(panel()).getByLabelText("¿A qué fotos?"), "Las elegidas (2)");
     await user.click(within(panel()).getByRole("button", { name: "Aplicar a 2 fotos" }));

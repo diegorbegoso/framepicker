@@ -22,6 +22,7 @@ type Props = {
   marked: ReadonlySet<string>;
   edits: Edits;
   luts: LutInfo[];
+  onLutsChanged?: () => void;
   onMarkedChange: (marked: Set<string>) => void;
   onFocusPhoto: (photoId: string | undefined) => void;
   onSetPick: (burstId: string, photo: SelectedPhoto, value: boolean) => void;
@@ -40,6 +41,7 @@ export function GridScreen({
   marked,
   edits,
   luts,
+  onLutsChanged,
   onMarkedChange,
   onFocusPhoto,
   onSetPick,
@@ -225,6 +227,7 @@ export function GridScreen({
           marked={marked}
           edits={edits}
           luts={luts}
+          onLutsChanged={onLutsChanged}
           onExport={onExport}
         />
       </aside>

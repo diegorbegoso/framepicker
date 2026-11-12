@@ -1,5 +1,4 @@
 import { Button } from "../../components/Button.tsx";
-import { NumberField } from "../../components/NumberField.tsx";
 import {
   type Adjustments,
   hasCurves,
@@ -12,6 +11,7 @@ import { AutoTop } from "./AutoCorrect.tsx";
 import styles from "./CorrectionsPanel.module.css";
 import { CurvesEditor } from "./CurvesEditor.tsx";
 import { HslMixer } from "./HslMixer.tsx";
+import { LutRow } from "./lut/LutRow.tsx";
 import { Section } from "./Section.tsx";
 import { SliderRow } from "./SliderRow.tsx";
 import { SLIDER_GROUPS, SLIDER_SPECS } from "./sliders.ts";
@@ -19,6 +19,7 @@ import { SLIDER_GROUPS, SLIDER_SPECS } from "./sliders.ts";
 type Props = {
   current: Adjustments;
   hasPhoto: boolean;
+  photoId: string | undefined;
   luts: LutInfo[];
   whiteBalance: boolean;
   onWhiteBalance: (on: boolean) => void;
@@ -27,12 +28,15 @@ type Props = {
   onChange: (patch: Partial<Adjustments>) => void;
   onCrop: () => void;
   onRestore: () => void;
+  onHoverLut: (lutId: string | null | undefined) => void;
+  onLutsChanged: () => void;
 };
 
 /** Everything that can be done to the photo on screen, in folding sections. */
 export function PhotoTab({
   current,
   hasPhoto,
+  photoId,
   luts,
   whiteBalance,
   onWhiteBalance,
@@ -41,9 +45,10 @@ export function PhotoTab({
   onChange,
   onCrop,
   onRestore,
+  onHoverLut,
+  onLutsChanged,
 }: Props) {
   const disabled = !hasPhoto;
-  const known = luts.some((lut) => lut.id === current.lut_id);
   return (
     <div className={styles.tab}>
       <AutoTop
@@ -95,49 +100,14 @@ export function PhotoTab({
       </Section>
 
       <Section title="LUT" changed={current.lut_id !== null}>
-        <label className={styles.field}>
-          LUT
-          <select
-            value={current.lut_id ?? ""}
-            disabled={disabled}
-            onChange={(event) => onChange({ lut_id: event.target.value || null })}
-          >
-            <option value="">Sin LUT</option>
-            {current.lut_id && !known ? (
-              <option value={current.lut_id}>(LUT quitado)</option>
-            ) : null}
-            {luts.map((lut) => (
-              <option key={lut.id} value={lut.id}>
-                {lut.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        {current.lut_id ? (
-          <div className={styles.slider}>
-            <span className={styles.row}>
-              Intensidad del LUT
-              <NumberField
-                label="Intensidad del LUT (valor)"
-                value={current.lut_strength * 100}
-                min={0}
-                max={100}
-                step={1}
-                unit="%"
-                onChange={(next) => onChange({ lut_strength: next / 100 })}
-              />
-            </span>
-            <input
-              type="range"
-              aria-label="Intensidad del LUT"
-              min={0}
-              max={1}
-              step={0.01}
-              value={current.lut_strength}
-              onChange={(event) => onChange({ lut_strength: Number(event.target.value) })}
-            />
-          </div>
-        ) : null}
+        <LutRow
+          photoId={photoId}
+          current={current}
+          luts={luts}
+          onChange={onChange}
+          onHover={onHoverLut}
+          onLutsChanged={onLutsChanged}
+        />
       </Section>
 
       <Button size="sm" disabled={disabled || isNeutral(current)} onClick={onRestore}>

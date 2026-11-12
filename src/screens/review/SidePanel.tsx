@@ -14,6 +14,7 @@ type Props = {
   marked: ReadonlySet<string>;
   edits: Edits;
   luts: LutInfo[];
+  onLutsChanged?: () => void;
   onExport: (scope: Scope) => void;
   onApplied: (bursts: SelectedBurst[]) => void;
   onError: (message: string | null) => void;
@@ -27,6 +28,7 @@ export function SidePanel({
   marked,
   edits,
   luts,
+  onLutsChanged,
   onExport,
   onApplied,
   onError,
@@ -41,6 +43,7 @@ export function SidePanel({
         marked={marked}
         edits={edits}
         luts={luts}
+        onLutsChanged={onLutsChanged}
         onExport={onExport}
       />
       <ScoresPanel photo={photo} />
