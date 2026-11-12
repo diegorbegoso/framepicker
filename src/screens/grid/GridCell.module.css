@@ -1,5 +1,7 @@
 .cell {
   position: relative;
+  /* The shape comes from the column width, never from the picture: 3:2 even before it loads. */
+  aspect-ratio: 3 / 2;
   border-radius: var(--radius-control);
   background: var(--stage-raised);
   outline: 2px solid transparent;
@@ -11,7 +13,7 @@
 .picture {
   display: block;
   width: 100%;
-  aspect-ratio: 3 / 2;
+  height: 100%;
   padding: 0;
   border: 0;
   background: transparent;

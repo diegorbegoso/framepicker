@@ -44,6 +44,10 @@
   flex: 1;
   display: grid;
   align-content: start;
+  /* Each row is as tall as its cells. With `auto`, rows of cells that clip their content (overflow
+     hidden) start at 0 and only grow while the container has free space: with hundreds of photos
+     every row past the first screenful stayed flat. */
+  grid-auto-rows: max-content;
   gap: 8px;
   min-height: 0;
   padding: var(--space-4);
