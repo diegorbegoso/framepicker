@@ -150,26 +150,30 @@ async fn pick_files(
 }
 
 #[tauri::command]
-async fn pick_lut(
+async fn pick_luts(
     app: AppHandle,
     state: State<'_, EngineState>,
-) -> Result<Option<String>, String> {
+) -> Result<Option<Vec<String>>, String> {
     let client = client(&app, &state)?;
     tauri::async_runtime::spawn_blocking(move || {
         let Some(picked) = app
             .dialog()
             .file()
             .add_filter("LUT 3D (.cube)", &["cube"])
-            .blocking_pick_file()
+            .blocking_pick_files()
         else {
             return Ok(None);
         };
-        let path = picked.into_path().map_err(|error| error.to_string())?;
-        let text = path.to_string_lossy().to_string();
+        let mut files = Vec::new();
+        for item in picked {
+            let path = item.into_path().map_err(|error| error.to_string())?;
+            files.push(path.to_string_lossy().to_string());
+        }
+        // Only these files are granted, not the folders they sit in.
         client
-            .request("grant_roots", json!({ "roots": [text.clone()] }), FIRST_CONTACT_TIMEOUT)
+            .request("grant_roots", json!({ "roots": files.clone() }), FIRST_CONTACT_TIMEOUT)
             .map_err(failure_text)?;
-        Ok(Some(text))
+        Ok(Some(files))
     })
     .await
     .map_err(|error| error.to_string())?
@@ -179,7 +183,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(EngineState(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![engine_request, pick_folder, pick_files, pick_lut])
+        .invoke_handler(tauri::generate_handler![engine_request, pick_folder, pick_files, pick_luts])
         .run(tauri::generate_context!())
         .expect("error while running Mejores Tomas");
 }

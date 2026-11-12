@@ -32,6 +32,8 @@ pub const FORWARDABLE: &[&str] = &[
     "export",
     "luts_list",
     "luts_add",
+    "luts_add_many",
+    "luts_add_folder",
     "luts_remove",
     "edits_get",
     "edits_set",
@@ -288,7 +290,9 @@ mod tests {
         assert!(is_forwardable("edits_set"));
         assert!(is_forwardable("sessions_list"));
         assert!(is_forwardable("organize_apply"));
-        assert!(!is_forwardable("pick_lut"));
+        assert!(is_forwardable("luts_add_many"));
+        assert!(is_forwardable("luts_add_folder"));
+        assert!(!is_forwardable("pick_luts"));
         assert!(!is_forwardable("nope"));
     }
 }
