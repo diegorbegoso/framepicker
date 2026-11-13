@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  installer:
+    name: Construir y publicar el instalador
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: La etiqueta coincide con la versión
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "La etiqueta ${GITHUB_REF_NAME} no coincide con la versión v${version} de package.json" >&2
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: engine/uv.lock
+
+      - name: Rust (versión de rust-toolchain.toml)
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: pnpm install --frozen-lockfile
+      - run: uv sync --frozen --directory engine
+
+      - name: Congelar el motor de análisis
+        run: pnpm build:sidecar
+
+      - name: Construir el instalador
+        run: pnpm build:app
+
+      - name: Publicar la Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          installer=$(ls src-tauri/target/release/bundle/nsis/*-setup.exe)
+          echo "Instalador: ${installer}"
+          gh release create "${GITHUB_REF_NAME}" "${installer}" \
+            --title "Mejores Tomas ${GITHUB_REF_NAME}" \
+            --generate-notes

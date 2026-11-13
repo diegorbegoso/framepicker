@@ -3,6 +3,7 @@ name = "mejores-tomas"
 version = "0.1.0"
 description = "Mejores Tomas: selecciona las mejores fotos de una ráfaga, en local."
 edition = "2021"
+license = "GPL-3.0-only"
 rust-version = "1.80"
 
 [lib]
