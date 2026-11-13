@@ -1,6 +1,6 @@
 # Avisos de terceros
 
-Mejores Tomas se publica bajo la licencia GNU GPL v3 (ver `LICENSE`). Incluye o usa los siguientes componentes de terceros, cada uno bajo su propia licencia:
+Framepicker se publica bajo la licencia GNU GPL v3 (ver `LICENSE`). Incluye o usa los siguientes componentes de terceros, cada uno bajo su propia licencia:
 
 | Componente                                                                          | Uso                                           | Licencia                                  |
 | ----------------------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------- |
@@ -17,4 +17,4 @@ El modelo `face_landmarker.task` se descargó de
 `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`
 (ver `scripts/fetch_model.py`, que comprueba su tamaño y SHA-256). El resto de dependencias, con sus versiones exactas, están en `pnpm-lock.yaml`, `engine/uv.lock` y `src-tauri/Cargo.lock`.
 
-Mejores Tomas analiza todo en tu equipo: no abre conexiones de red ni envía tus fotos a ningún sitio.
+Framepicker analiza todo en tu equipo: no abre conexiones de red ni envía tus fotos a ningún sitio.

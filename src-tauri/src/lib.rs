@@ -23,7 +23,7 @@ pub fn wants_ping_engine(args: &[String]) -> bool {
 pub const FIRST_CONTACT_TIMEOUT: Duration = Duration::from_secs(180);
 
 pub fn version_line() -> String {
-    format!("mejores-tomas {}", env!("CARGO_PKG_VERSION"))
+    format!("framepicker {}", env!("CARGO_PKG_VERSION"))
 }
 
 /// Starts the engine, asks it to ping, prints `engine-ok <version>`. Returns the process exit code.
@@ -72,7 +72,9 @@ fn client(app: &AppHandle, state: &EngineState) -> Result<Arc<EngineClient>, Str
         })?;
         *slot = Some(Arc::new(started));
     }
-    Ok(Arc::clone(slot.as_ref().expect("engine client was just stored")))
+    Ok(Arc::clone(
+        slot.as_ref().expect("engine client was just stored"),
+    ))
 }
 
 #[tauri::command]
@@ -84,7 +86,8 @@ async fn engine_request(
 ) -> Result<Value, String> {
     if !is_forwardable(&method) {
         return Err(
-            json!({ "code": -32601, "message": format!("method not allowed: {method}") }).to_string()
+            json!({ "code": -32601, "message": format!("method not allowed: {method}") })
+                .to_string(),
         );
     }
     let client = client(&app, &state)?;
@@ -110,7 +113,11 @@ async fn pick_folder(
         let path = picked.into_path().map_err(|error| error.to_string())?;
         let text = path.to_string_lossy().to_string();
         client
-            .request("grant_roots", json!({ "roots": [text.clone()] }), FIRST_CONTACT_TIMEOUT)
+            .request(
+                "grant_roots",
+                json!({ "roots": [text.clone()] }),
+                FIRST_CONTACT_TIMEOUT,
+            )
             .map_err(failure_text)?;
         Ok(Some(text))
     })
@@ -141,7 +148,11 @@ async fn pick_files(
             files.push(path.to_string_lossy().to_string());
         }
         client
-            .request("grant_roots", json!({ "roots": folders }), FIRST_CONTACT_TIMEOUT)
+            .request(
+                "grant_roots",
+                json!({ "roots": folders }),
+                FIRST_CONTACT_TIMEOUT,
+            )
             .map_err(failure_text)?;
         Ok(Some(files))
     })
@@ -171,7 +182,11 @@ async fn pick_luts(
         }
         // Only these files are granted, not the folders they sit in.
         client
-            .request("grant_roots", json!({ "roots": files.clone() }), FIRST_CONTACT_TIMEOUT)
+            .request(
+                "grant_roots",
+                json!({ "roots": files.clone() }),
+                FIRST_CONTACT_TIMEOUT,
+            )
             .map_err(failure_text)?;
         Ok(Some(files))
     })
@@ -183,9 +198,14 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(EngineState(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![engine_request, pick_folder, pick_files, pick_luts])
+        .invoke_handler(tauri::generate_handler![
+            engine_request,
+            pick_folder,
+            pick_files,
+            pick_luts
+        ])
         .run(tauri::generate_context!())
-        .expect("error while running Mejores Tomas");
+        .expect("error while running Framepicker");
 }
 
 #[cfg(test)]
@@ -198,20 +218,20 @@ mod tests {
 
     #[test]
     fn the_version_flag_is_detected() {
-        assert!(wants_version(&args(&["mejores-tomas", "--version"])));
+        assert!(wants_version(&args(&["framepicker", "--version"])));
     }
 
     #[test]
     fn near_misses_are_not_version_requests() {
-        assert!(!wants_version(&args(&["mejores-tomas", "--versions"])));
-        assert!(!wants_version(&args(&["mejores-tomas", "-v"])));
-        assert!(!wants_version(&args(&["mejores-tomas"])));
+        assert!(!wants_version(&args(&["framepicker", "--versions"])));
+        assert!(!wants_version(&args(&["framepicker", "-v"])));
+        assert!(!wants_version(&args(&["framepicker"])));
     }
 
     #[test]
     fn the_ping_engine_flag_is_detected_only_when_exact() {
-        assert!(wants_ping_engine(&args(&["mejores-tomas", "--ping-engine"])));
-        assert!(!wants_ping_engine(&args(&["mejores-tomas", "--ping"])));
+        assert!(wants_ping_engine(&args(&["framepicker", "--ping-engine"])));
+        assert!(!wants_ping_engine(&args(&["framepicker", "--ping"])));
     }
 
     #[test]
@@ -222,6 +242,6 @@ mod tests {
 
     #[test]
     fn the_version_line_names_the_product_and_the_cargo_version() {
-        assert_eq!(version_line(), "mejores-tomas 0.1.0");
+        assert_eq!(version_line(), "framepicker 0.1.0");
     }
 }

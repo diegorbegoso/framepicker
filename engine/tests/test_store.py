@@ -9,7 +9,7 @@ import pytest
 from mejores_engine import settings
 from mejores_engine.app import build_dispatcher
 from mejores_engine.rpc import INVALID_PARAMS, STORE_TOO_NEW, RpcError
-from mejores_engine.store import EXPECTED_TABLES, Store, data_dir
+from mejores_engine.store import EXPECTED_TABLES, Store, adopt_legacy_dir, data_dir
 
 
 def table_names(store: Store) -> set[str]:
@@ -93,3 +93,21 @@ def test_invalid_theme_is_rejected_and_not_stored(tmp_path: Path) -> None:
     assert caught.value.code == INVALID_PARAMS
     with store.session() as conn:
         assert settings.get_all(conn)["theme"] == "light"
+
+
+def test_the_old_data_folder_moves_to_the_new_name_once(tmp_path: Path) -> None:
+    old, new = tmp_path / "MejoresTomas", tmp_path / "Framepicker"
+    old.mkdir()
+    (old / "mejores.sqlite3").write_bytes(b"data")
+    assert adopt_legacy_dir(new, old) == new
+    assert (new / "mejores.sqlite3").read_bytes() == b"data"
+    assert not old.exists()
+
+
+def test_a_new_data_folder_is_never_replaced_by_the_old_one(tmp_path: Path) -> None:
+    old, new = tmp_path / "MejoresTomas", tmp_path / "Framepicker"
+    old.mkdir()
+    new.mkdir()
+    assert adopt_legacy_dir(new, old) == new
+    assert old.is_dir()
+    assert adopt_legacy_dir(tmp_path / "Otra", tmp_path / "Nada") == tmp_path / "Otra"

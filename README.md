@@ -1,4 +1,4 @@
-# Mejores Tomas
+# Framepicker
 
 Aplicación de escritorio para Windows que elige las mejores tomas de una ráfaga de fotos (JPG, PNG y RAW).
 Todo se analiza en tu equipo: sin red, sin cuentas y sin IA en la nube. **Tus originales nunca se modifican.**
@@ -12,7 +12,7 @@ Todo se analiza en tu equipo: sin red, sin cuentas y sin IA en la nube. **Tus or
 
 ## Instalar
 
-1. Ve a la página de [Releases](../../releases/latest) y descarga `Mejores Tomas_x.y.z_x64-setup.exe`.
+1. Ve a la página de [Releases](../../releases/latest) y descarga `Framepicker_x.y.z_x64-setup.exe`.
 2. Ejecútalo. Se instala solo para tu usuario, sin permisos de administrador.
 3. **Aviso de Windows**: como el instalador no está firmado con un certificado de pago, SmartScreen puede mostrar «Windows protegió tu PC». Pulsa **Más información → Ejecutar de todos modos**.
 

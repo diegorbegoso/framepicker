@@ -60,8 +60,8 @@ pub fn is_forwardable(method: &str) -> bool {
 }
 
 pub fn encode_request(id: u64, method: &str, params: &Value) -> String {
-    let mut line = json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params })
-        .to_string();
+    let mut line =
+        json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params }).to_string();
     line.push('\n');
     line
 }
@@ -74,8 +74,14 @@ pub struct RpcFailure {
 
 #[derive(Debug, PartialEq)]
 pub enum Incoming {
-    Response { id: u64, result: Result<Value, RpcFailure> },
-    Notification { method: String, params: Value },
+    Response {
+        id: u64,
+        result: Result<Value, RpcFailure>,
+    },
+    Notification {
+        method: String,
+        params: Value,
+    },
 }
 
 pub fn decode_line(line: &str) -> Result<Incoming, String> {
@@ -89,10 +95,16 @@ pub fn decode_line(line: &str) -> Result<Incoming, String> {
                 .and_then(Value::as_str)
                 .unwrap_or("unknown error")
                 .to_string();
-            return Ok(Incoming::Response { id, result: Err(RpcFailure { code, message }) });
+            return Ok(Incoming::Response {
+                id,
+                result: Err(RpcFailure { code, message }),
+            });
         }
         let result = value.get("result").cloned().unwrap_or(Value::Null);
-        return Ok(Incoming::Response { id, result: Ok(result) });
+        return Ok(Incoming::Response {
+            id,
+            result: Ok(result),
+        });
     }
     match value.get("method").and_then(Value::as_str) {
         Some(method) => Ok(Incoming::Notification {
@@ -110,8 +122,24 @@ pub fn data_dir() -> PathBuf {
         }
     }
     match std::env::var("LOCALAPPDATA") {
-        Ok(base) => PathBuf::from(base).join("MejoresTomas"),
-        Err(_) => PathBuf::from(".mejores-tomas"),
+        Ok(base) => adopt_legacy_dir(
+            PathBuf::from(&base).join("Framepicker"),
+            PathBuf::from(&base).join("MejoresTomas"),
+        ),
+        Err(_) => PathBuf::from(".framepicker"),
+    }
+}
+
+/// The data folder from before the app was called Framepicker is renamed to the new name, once, so
+/// sessions and LUTs carry over. Nothing is copied or deleted; if it cannot be renamed the old
+/// folder keeps being used.
+pub fn adopt_legacy_dir(current: PathBuf, legacy: PathBuf) -> PathBuf {
+    if current.exists() || !legacy.is_dir() {
+        return current;
+    }
+    match std::fs::rename(&legacy, &current) {
+        Ok(()) => current,
+        Err(_) => legacy,
     }
 }
 
@@ -120,7 +148,11 @@ fn log_target() -> Stdio {
     if std::fs::create_dir_all(&dir).is_err() {
         return Stdio::null();
     }
-    match OpenOptions::new().create(true).append(true).open(dir.join("engine.log")) {
+    match OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(dir.join("engine.log"))
+    {
         Ok(file) => Stdio::from(file),
         Err(_) => Stdio::null(),
     }
@@ -159,7 +191,10 @@ pub fn engine_command() -> Command {
 type Pending = Arc<Mutex<HashMap<u64, Sender<Result<Value, RpcFailure>>>>>;
 
 fn stopped() -> RpcFailure {
-    RpcFailure { code: -32000, message: "the analysis engine stopped".to_string() }
+    RpcFailure {
+        code: -32000,
+        message: "the analysis engine stopped".to_string(),
+    }
 }
 
 pub struct EngineClient {
@@ -170,9 +205,14 @@ pub struct EngineClient {
 }
 
 impl EngineClient {
-    pub fn spawn(on_event: impl Fn(String, Value) + Send + 'static) -> std::io::Result<EngineClient> {
+    pub fn spawn(
+        on_event: impl Fn(String, Value) + Send + 'static,
+    ) -> std::io::Result<EngineClient> {
         let mut command = engine_command();
-        command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(log_target());
+        command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(log_target());
         #[cfg(windows)]
         command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
         let mut child = command.spawn()?;
@@ -246,6 +286,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_old_data_folder_is_renamed_once_and_never_overwrites_a_new_one() {
+        let base = std::env::temp_dir().join(format!("fp_adopt_{}", std::process::id()));
+        let (old, new) = (base.join("MejoresTomas"), base.join("Framepicker"));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&old).unwrap();
+        std::fs::write(old.join("mejores.sqlite3"), b"x").unwrap();
+        assert_eq!(adopt_legacy_dir(new.clone(), old.clone()), new);
+        assert!(new.join("mejores.sqlite3").is_file() && !old.exists());
+        std::fs::create_dir_all(&old).unwrap();
+        assert_eq!(adopt_legacy_dir(new.clone(), old.clone()), new); // the new one wins
+        assert!(old.is_dir());
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
     fn a_request_line_round_trips_through_the_codec() {
         let line = encode_request(7, "ping", &json!({}));
         assert!(line.ends_with('\n'));
@@ -255,18 +310,25 @@ mod tests {
         let reply = r#"{"jsonrpc":"2.0","id":7,"result":{"pong":true,"version":"0.1.0"}}"#;
         assert_eq!(
             decode_line(reply).unwrap(),
-            Incoming::Response { id: 7, result: Ok(json!({"pong": true, "version": "0.1.0"})) }
+            Incoming::Response {
+                id: 7,
+                result: Ok(json!({"pong": true, "version": "0.1.0"}))
+            }
         );
     }
 
     #[test]
     fn an_error_response_keeps_its_code_and_message() {
-        let reply = r#"{"jsonrpc":"2.0","id":3,"error":{"code":-32010,"message":"path not allowed"}}"#;
+        let reply =
+            r#"{"jsonrpc":"2.0","id":3,"error":{"code":-32010,"message":"path not allowed"}}"#;
         assert_eq!(
             decode_line(reply).unwrap(),
             Incoming::Response {
                 id: 3,
-                result: Err(RpcFailure { code: -32010, message: "path not allowed".to_string() }),
+                result: Err(RpcFailure {
+                    code: -32010,
+                    message: "path not allowed".to_string()
+                }),
             }
         );
     }

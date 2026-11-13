@@ -38,8 +38,25 @@ def data_dir() -> Path:
         return Path(override)
     local_app_data = os.environ.get("LOCALAPPDATA")
     if local_app_data:
-        return Path(local_app_data) / "MejoresTomas"
-    return Path.home() / ".mejores-tomas"
+        return adopt_legacy_dir(
+            Path(local_app_data) / "Framepicker", Path(local_app_data) / "MejoresTomas"
+        )
+    return Path.home() / ".framepicker"
+
+
+def adopt_legacy_dir(current: Path, legacy: Path) -> Path:
+    """The data folder of the app before it was called Framepicker moves to the new name, once.
+
+    Nothing is copied or deleted: the folder is renamed, so sessions and LUTs carry over. If it
+    cannot be renamed (in use, no permission) the old folder keeps being used.
+    """
+    if current.exists() or not legacy.is_dir():
+        return current
+    try:
+        legacy.rename(current)
+    except OSError:
+        return legacy
+    return current
 
 
 def migration_files() -> list[tuple[str, Path]]:
@@ -101,7 +118,7 @@ class Store:
         if unknown:
             raise RpcError(
                 STORE_TOO_NEW,
-                "the database was written by a newer version of Mejores Tomas",
+                "the database was written by a newer version of Framepicker",
                 {"versions": unknown},
             )
         for version, path in known:

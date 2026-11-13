@@ -1,4 +1,4 @@
-# Mejores Tomas
+# Framepicker
 
 App de escritorio para Windows que elige las mejores tomas de una ráfaga de fotos (JPG, PNG y RAW).
 Todo se analiza en el equipo: sin red, sin cuentas y sin IA en la nube. Los originales nunca se modifican.

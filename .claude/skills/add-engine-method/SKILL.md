@@ -1,7 +1,7 @@
 ---
 
 name: add-engine-method
-description: Add a new JSON-RPC method to the Mejores Tomas analysis engine and expose it to the interface. Use when a task says add an engine method, a new RPC call, or a new command the UI can request.
+description: Add a new JSON-RPC method to the Framepicker analysis engine and expose it to the interface. Use when a task says add an engine method, a new RPC call, or a new command the UI can request.
 ---
 
 # Add an engine method

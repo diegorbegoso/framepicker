@@ -1,13 +1,13 @@
 [package]
-name = "mejores-tomas"
+name = "framepicker"
 version = "0.1.0"
-description = "Mejores Tomas: selecciona las mejores fotos de una ráfaga, en local."
+description = "Framepicker: selecciona las mejores fotos de una ráfaga, en local."
 edition = "2021"
 license = "GPL-3.0-only"
 rust-version = "1.80"
 
 [lib]
-name = "mejores_tomas_lib"
+name = "framepicker_lib"
 
 [build-dependencies]
 tauri-build = { version = "=2.7.4", features = [] }

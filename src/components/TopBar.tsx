@@ -14,7 +14,7 @@ type Props = {
 export function TopBar({ theme, onThemeChange, floating = false }: Props) {
   return (
     <header className={floating ? `${styles.root} ${styles.floating}` : styles.root}>
-      <span className={styles.mark} role="img" aria-label="Mejores Tomas">
+      <span className={styles.mark} role="img" aria-label="Framepicker">
         <Icon name="camera" size={18} />
       </span>
       <ThemeSwitch theme={theme} onThemeChange={onThemeChange} />

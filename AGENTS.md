@@ -1,4 +1,4 @@
-# Mejores Tomas — agent instructions
+# Framepicker — agent instructions
 
 Windows desktop app that picks the best shots of a photo burst. Everything runs locally: no network, no accounts, no cloud AI.
 

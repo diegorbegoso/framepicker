@@ -60,5 +60,5 @@ jobs:
           installer=$(ls src-tauri/target/release/bundle/nsis/*-setup.exe)
           echo "Instalador: ${installer}"
           gh release create "${GITHUB_REF_NAME}" "${installer}" \
-            --title "Mejores Tomas ${GITHUB_REF_NAME}" \
+            --title "Framepicker ${GITHUB_REF_NAME}" \
             --generate-notes

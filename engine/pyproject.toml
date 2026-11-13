@@ -1,7 +1,7 @@
 [project]
 name = "mejores-engine"
 version = "0.1.0"
-description = "Mejores Tomas analysis engine. Runs locally, never touches the network."
+description = "Framepicker analysis engine. Runs locally, never touches the network."
 requires-python = ">=3.12,<3.13"
 license = "GPL-3.0-only"
 dependencies = [

@@ -3,12 +3,12 @@
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    if mejores_tomas_lib::wants_version(&args) {
-        println!("{}", mejores_tomas_lib::version_line());
+    if framepicker_lib::wants_version(&args) {
+        println!("{}", framepicker_lib::version_line());
         return;
     }
-    if mejores_tomas_lib::wants_ping_engine(&args) {
-        std::process::exit(mejores_tomas_lib::ping_engine());
+    if framepicker_lib::wants_ping_engine(&args) {
+        std::process::exit(framepicker_lib::ping_engine());
     }
-    mejores_tomas_lib::run();
+    framepicker_lib::run();
 }

@@ -42,7 +42,7 @@ export function ReviewBar({
 }: Props) {
   return (
     <div className={styles.root}>
-      <span className={styles.mark} role="img" aria-label="Mejores Tomas">
+      <span className={styles.mark} role="img" aria-label="Framepicker">
         <Icon name="camera" size={16} />
       </span>
       <InlineName

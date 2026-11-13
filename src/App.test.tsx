@@ -34,7 +34,7 @@ describe("App", () => {
     engineWithTheme("light");
     render(<App />);
     expect(screen.getByRole("banner")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Mejores Tomas" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Framepicker" })).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Modo oscuro" })).not.toBeChecked();
     expect(screen.queryByRole("button", { name: "Ajustes" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Inicio" })).not.toBeInTheDocument();

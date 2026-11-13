@@ -51,7 +51,7 @@ function Action({
 export function Hero({ disabled, onFolder, onFiles }: Props) {
   return (
     <>
-      <p className={styles.kicker}>Mejores Tomas</p>
+      <p className={styles.kicker}>Framepicker</p>
       <h2 id="home-title" className={styles.title}>
         Elige las mejores tomas de tus ráfagas
       </h2>
