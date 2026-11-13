@@ -59,6 +59,11 @@ jobs:
         run: |
           installer=$(ls src-tauri/target/release/bundle/nsis/*-setup.exe)
           echo "Instalador: ${installer}"
-          gh release create "${GITHUB_REF_NAME}" "${installer}" \
-            --title "Framepicker ${GITHUB_REF_NAME}" \
-            --generate-notes
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            # La etiqueta se volvió a empujar: se reemplaza el instalador de la Release existente.
+            gh release upload "${GITHUB_REF_NAME}" "${installer}" --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" "${installer}" \
+              --title "Framepicker ${GITHUB_REF_NAME}" \
+              --generate-notes
+          fi
